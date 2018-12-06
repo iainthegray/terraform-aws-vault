@@ -1,0 +1,5 @@
+# Userdata requirements:
+
+1. S3 bucket access via policy
+2. aws cli Install
+3. unzip
