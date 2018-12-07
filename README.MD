@@ -28,15 +28,15 @@ The module has these specifics that are configurable:
 module vault_cluster {
 
   # This source should be the tag for this module if pulling from git
-  source            = "../terraform-aws-vault/modules/vault-cluster"
+  source                 = "../terraform-aws-vault/modules/vault-cluster"
 
-  instance_type     = "${var.instance_type}"
-  ssh_key_name      = "${var.ssh_key_name}"
-  cluster_name      = "${var.cluster_name}"
-  ami_id            = "${var.ami_id}"
-  private_subnets   = "${module.vpc.private_subnets}"
-  vpc_id            = "${module.vpc.vpc_id}"
-  azs               = "${var.azs}"
+  instance_type          = "${var.instance_type}"
+  ssh_key_name           = "${var.ssh_key_name}"
+  cluster_name           = "${var.cluster_name}"
+  ami_id                 = "${var.ami_id}"
+  private_subnets        = "${module.vpc.private_subnets}"
+  vpc_id                 = "${module.vpc.vpc_id}"
+  availability_zones     = "${var.availability_zones}"
 
   # This is where you can add additional security groups to allow for such things as SSH access and access to the API
 

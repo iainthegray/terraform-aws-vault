@@ -2,15 +2,15 @@ terraform {
   required_version = ">= 0.11.10"
 }
 
-# ------------------------------------------------------------------------------
-# The Vault cluster is either built as var.vault_cluster_size instances or as a
-# var.vault_cluster_size[min|max|des] instance ASG depending on the use of the
-# var.use_asg boolean.
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-#  This is the instance build for the Vault infra without an ASG. This is
-# defined only if the variable var.use_asg = false (default)
-# ------------------------------------------------------------------------------
+/*------------------------------------------------------------------------------
+The Vault cluster is either built as var.vault_cluster_size instances or as a
+var.vault_cluster_size[min|max|des] instance ASG depending on the use of the
+var.use_asg boolean.
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+ This is the instance build for the Vault infra without an ASG. This is
+defined only if the variable var.use_asg = false (default)
+------------------------------------------------------------------------------*/
 
 resource "aws_instance" "vault-instance" {
   ami                         = "${var.ami_id}"
@@ -20,15 +20,16 @@ resource "aws_instance" "vault-instance" {
   key_name                    = "${var.ssh_key_name}"
   vpc_security_group_ids      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
   subnet_id                   = "${element(var.private_subnets, count.index)}"
+
   tags = {
     Name = "vault_server-${count.index}"
   }
 }
 
-# ------------------------------------------------------------------------------
-# This is the configuration for the Vault ASG. This is defined only if the
-# variable var.use_asg = true
-# ------------------------------------------------------------------------------
+/*------------------------------------------------------------------------------
+This is the configuration for the Vault ASG. This is defined only if the
+variable var.use_asg = true
+------------------------------------------------------------------------------*/
 
 resource "aws_launch_configuration" "vault_instance_asg" {
   count           = "${(var.use_asg ? 1 : 0)}"
@@ -42,7 +43,7 @@ resource "aws_autoscaling_group" "vault_asg" {
   count                = "${(var.use_asg ? 1 : 0)}"
   name_prefix          = "${var.cluster_name}"
   launch_configuration = "${aws_launch_configuration.vault_instance_asg.name}"
-  availability_zones   = ["${var.azs}"]
+  availability_zones   = ["${var.availability_zones}"]
   vpc_zone_identifier  = ["${var.private_subnets}"]
 
   min_size             = "${var.vault_cluster_size_min}"
@@ -61,10 +62,10 @@ resource "aws_autoscaling_group" "vault_asg" {
   }
 }
 
-# ------------------------------------------------------------------------------
-# This is the configuration for the ELB. This is defined only if the variable
-# var.use_elb = true
-# ------------------------------------------------------------------------------
+/*------------------------------------------------------------------------------
+This is the configuration for the ELB. This is defined only if the variable
+var.use_elb = true
+------------------------------------------------------------------------------*/
 resource "aws_elb" "vault_elb" {
   count                       = "${(var.use_elb ? 1 : 0)}"
   name_prefix                 = "elb-"
@@ -91,9 +92,9 @@ resource "aws_elb" "vault_elb" {
   }
 }
 
-# --------------------------------------------------------------
-# Vault Cluster Instance Security Group
-#--------------------------------------------------------------
+/*--------------------------------------------------------------
+Vault Cluster Instance Security Group
+--------------------------------------------------------------*/
 
 resource "aws_security_group" "vault_cluster_int" {
   name        = "vault_cluster_int"
@@ -101,9 +102,9 @@ resource "aws_security_group" "vault_cluster_int" {
   vpc_id      = "${var.vpc_id}"
 }
 
-#--------------------------------------------------------------
-# Vault Cluster Internal Security Group Rules
-#--------------------------------------------------------------
+/*--------------------------------------------------------------
+Vault Cluster Internal Security Group Rules
+--------------------------------------------------------------*/
 
 resource "aws_security_group_rule" "vault_cluster_allow_self_8300-8302_tcp" {
   type              = "ingress"
@@ -164,10 +165,10 @@ resource "aws_security_group_rule" "vault_cluster_allow_egress_all" {
   security_group_id = "${aws_security_group.vault_cluster_int.id}"
 }
 
-# ------------------------------------------------------------------------------
-#  This is the instance build for the Consul infra. This is deliberately
-# not built inside an ASG (coz)
-# ------------------------------------------------------------------------------
+/*------------------------------------------------------------------------------
+ This is the instance build for the Consul infra. This is deliberately
+not built inside an ASG (coz)
+------------------------------------------------------------------------------*/
 
 resource "aws_instance" "consul-instance" {
   ami                         = "${var.ami_id}"
@@ -177,6 +178,7 @@ resource "aws_instance" "consul-instance" {
   key_name                    = "${var.ssh_key_name}"
   vpc_security_group_ids      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
   subnet_id                   = "${element(var.private_subnets, count.index)}"
+
   tags = {
     Name = "consul_server-${count.index}"
   }
