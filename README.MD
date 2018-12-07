@@ -27,7 +27,7 @@ The module has these specifics that are configurable:
 ```hcl
 module vault_cluster {
 
-  # This source should be teh tag for this module if pulling from git
+  # This source should be the tag for this module if pulling from git
   source            = "../terraform-aws-vault/modules/vault-cluster"
 
   instance_type     = "${var.instance_type}"
