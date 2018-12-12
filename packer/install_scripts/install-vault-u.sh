@@ -81,7 +81,10 @@ function install_dependencies {
     sudo apt-get install -y awscli curl unzip jq
   elif $(has_yum); then
     sudo yum update -y
-    sudo yum install -y aws curl unzip jq
+    sudo yum install -y unzip jq
+    sudo yum install -y epel-release
+    sudo yum install -y python-pip
+    sudo pip install awscli
   else
     log_error "Could not find apt-get or yum. Cannot install dependencies on this OS."
     exit 1

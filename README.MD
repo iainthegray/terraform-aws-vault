@@ -53,3 +53,9 @@ module vault_cluster {
   use_elb           = false
 }
 ```
+# TODO
+packer for Centos
+Vault TLS
+Consul install - add to packer
+Consul ACL
+vault consul backend config
