@@ -28,7 +28,7 @@ The module has these specifics that are configurable:
 module vault_cluster {
 
   # This source should be the tag for this module if pulling from git
-  source                 = "../terraform-aws-vault/modules/vault-cluster"
+  source                 = "../terraform-aws-vault/vault-cluster"
 
   instance_type          = "${var.instance_type}"
   ssh_key_name           = "${var.ssh_key_name}"

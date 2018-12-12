@@ -16,6 +16,7 @@ resource "aws_instance" "vault-instance" {
   ami                         = "${var.ami_id}"
   count                       = "${(var.use_asg ? 0 : var.vault_cluster_size)}"
   instance_type               = "${var.instance_type}"
+  iam_instance_profile        = "${aws_iam_instance_profile.cluster_server.id}"
   associate_public_ip_address = false
   key_name                    = "${var.ssh_key_name}"
   vpc_security_group_ids      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
@@ -23,6 +24,26 @@ resource "aws_instance" "vault-instance" {
 
   tags = {
     Name = "vault_server-${count.index}"
+  }
+}
+
+/*------------------------------------------------------------------------------
+ This is the instance build for the Consul infra. This is deliberately
+not built inside an ASG (coz)
+------------------------------------------------------------------------------*/
+
+resource "aws_instance" "consul-instance" {
+  ami                         = "${var.ami_id}"
+  count                       = "${var.consul_cluster_size}"
+  instance_type               = "${var.instance_type}"
+  iam_instance_profile        = "${aws_iam_instance_profile.cluster_server.id}"
+  associate_public_ip_address = false
+  key_name                    = "${var.ssh_key_name}"
+  vpc_security_group_ids      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
+  subnet_id                   = "${element(var.private_subnets, count.index)}"
+
+  tags = {
+    Name = "consul_server-${count.index}"
   }
 }
 
@@ -36,6 +57,7 @@ resource "aws_launch_configuration" "vault_instance_asg" {
   name_prefix     = "${var.cluster_name}-"
   image_id        = "${var.ami_id}"
   instance_type   = "${var.instance_type}"
+  iam_instance_profile = "${aws_iam_instance_profile.cluster_server.id}"
   security_groups = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
 }
 
@@ -166,20 +188,22 @@ resource "aws_security_group_rule" "vault_cluster_allow_egress_all" {
 }
 
 /*------------------------------------------------------------------------------
- This is the instance build for the Consul infra. This is deliberately
-not built inside an ASG (coz)
+ This is the IAM profile setup for the cluster servers to allow the consul
+ servers to join a cluster.
 ------------------------------------------------------------------------------*/
+resource "aws_iam_instance_profile" "cluster_server" {
+  name = "cluster-server-${var.global_region}"
+  role = "${aws_iam_role.cluster_server.name}"
+}
 
-resource "aws_instance" "consul-instance" {
-  ami                         = "${var.ami_id}"
-  count                       = "${var.consul_cluster_size}"
-  instance_type               = "${var.instance_type}"
-  associate_public_ip_address = false
-  key_name                    = "${var.ssh_key_name}"
-  vpc_security_group_ids      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
-  subnet_id                   = "${element(var.private_subnets, count.index)}"
+resource "aws_iam_role" "cluster_server" {
+  name               = "cluster-server-${var.global_region}"
+  path               = "/"
+  assume_role_policy = "${file("${path.module}/provisioning/files/cluster-server-role.json")}"
+}
 
-  tags = {
-    Name = "consul_server-${count.index}"
-  }
+resource "aws_iam_role_policy" "cluster_server" {
+  name   = "cluster-server-${var.global_region}"
+  role   = "${aws_iam_role.cluster_server.id}"
+  policy = "${file("${path.module}/provisioning/files/cluster-server-role-policy.json")}"
 }

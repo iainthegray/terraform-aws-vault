@@ -1,0 +1,40 @@
+{
+  "description": "This is a basic packer file for building a simple AWS AMI containing vault and consul",
+  "variables": {
+    "vault_location": "s3://irg-personal/Packer/vault-enterprise_1.0.0-rc1_prem_linux_amd64.zip",
+    "consul_version": "1.3.0",
+    "source_ami": "ami-02790d1ebf3b5181d",
+    "os_version_tag": "Ubuntu 18.04 LTS"
+  },
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "eu-west-1",
+      "source_ami": "{{user `source_ami`}}",
+      "instance_type": "t2.micro",
+      "ssh_username": "ubuntu",
+      "ami_name": "vault{{timestamp}}",
+      "iam_instance_profile": "Packer-S3-Access",
+      "communicator": "ssh",
+      "tags": {
+        "OS_Version": "{{user `os_version_tag`}}",
+        "Base_AMI_Name": "{{ .SourceAMIName }}",
+        "Install": "vault"
+      }
+    }
+  ],
+  "_provisioners_comment": "Comment",
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "{{template_dir}}/install_scripts",
+      "destination": "/tmp"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "bash /tmp/install_scripts/install-vault-u.sh --dl {{user `vault_location`}}"
+      ]
+    }
+  ]
+}

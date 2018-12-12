@@ -18,6 +18,11 @@ variable "use_elb" {
 Vault Cluster Variables
 Variables that define the cluster instances
 ------------------------------------------------*/
+variable "global_region" {
+  description = "the region vault cluster will be deployed into"
+  type        = "string"
+}
+
 variable "cluster_name" {
   description = "The name of the Vault cluster (e.g. vault-stage). This variable is used to namespace all resources created by this module."
   type        = "string"
@@ -171,7 +176,7 @@ variable "health_check_protocol" {
 }
 
 variable "health_check_path" {
-  description = "The Vaulkt API path to hit."
+  description = "The Vault API path to hit."
   type        = "string"
   default     = "/v1/sys/health"
 }
