@@ -16,9 +16,9 @@ readonly DEFAULT_VAULT_USER="vault"
 readonly DEFAULT_VAULT_PATH="/etc/vault.d/"
 readonly DEFAULT_VAULT_CONFIG="vault.hcl"
 readonly DEFAULT_VAULT_SERVICE="/etc/systemd/system/vault.service"
+readonly DEFAULT_VAULT_CERTS="/etc/vault.d/certs"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly SYSTEM_BIN_DIR="/usr/local/bin"
-readonly TMP_DIR="/tmp"
+readonly TMP_DIR="/tmp/install"
 readonly TMP_ZIP="vault.zip"
 readonly SCRIPT_NAME="$(basename "$0")"
 
@@ -27,7 +27,14 @@ function print_usage {
   echo "Usage: install-vault [OPTIONS]"
   echo "Options:"
   echo
-  echo -e "  --dl\t\tThe S3 location of the vault binary (zip) to install. e.g. s3://[bucket-name]/[path_to_zip] Required."
+  echo -e "  --install-bucket\t\tThe S3 location of a folder that contains all the install artifacts. Required"
+  echo
+  echo -e "  --vault-bin\t\t The name of the vault binary (zip) to install. (must be in the S3 bucket above) Required."
+  echo
+  echo -e "  --key\t\t The name of the private key file for vault TLS. (must be in the S3 bucket above). Required."
+  echo
+  echo -e "  --cert\t\t The name of the cert file for vault TLS. (must be in the S3 bucket above). Required."
+  echo
   echo "This script can be used to install Vault and its dependencies. This script has been tested with Ubuntu 18.04 and Centos 7."
   echo
 }
@@ -109,16 +116,21 @@ function create_vault_user {
 
 function create_vault_install_paths {
   local -r path="$1"
-  local -r username="$2"
-  local -r config="$3"
+  local -r c_path="$2"
+  local -r username="$3"
+  local -r config="$4"
+  local -r key="$5"
+  local -r cert="$6"
 
   log_info "Creating install dirs for Vault at $path"
   sudo mkdir -p "$path"
-  sudo cat << EOF > /tmp/outy
+  sudo mkdir -p "$c_path"
+  sudo cat << EOF > ${TMP_DIR}/outy
 
 listener "tcp" {
   address       = "0.0.0.0:8200"
-  tls_disable = true
+  tls_cert_file = "${c_path}/${cert}"
+  tls_key_file  = "${c_path}/${key}"
 }
 
 storage "consul" {
@@ -130,7 +142,7 @@ ui = true
 api_addr = "{{full URL to Vault API endpoint}}"
 EOF
 
-  sudo cp /tmp/outy ${path}$config
+  sudo cp ${TMP_DIR}/outy ${path}$config
   sudo chmod 640 ${path}$config
   log_info "Changing ownership of $path to $username"
   sudo chown -R "$username:$username" "$path"
@@ -139,16 +151,17 @@ EOF
 function get_vault_binary {
 
   local -r loc="$1"
-  local -r tmp="$2"
-  local -r zip="$3"
+  local -r bin="$2"
+  local -r tmp="$3"
+  local -r zip="$4"
 
   log_info "Copying vault binary to local"
-  aws s3 cp $loc "${tmp}/${zip}"
+  aws s3 cp ${loc}/${bin} "${tmp}/${zip}"
   ex_c=$?
   log_info "s3 copy exit code == $ex_c"
   if [ $ex_c -ne 0 ]
   then
-    log_error "The copy of the vault binary from $loc failed"
+    log_error "The copy of the vault binary from ${loc}/${bin} failed"
     exit
   else
     log_info "Copy of vault binary successful"
@@ -172,6 +185,39 @@ function install_vault {
   sudo chown root:root vault
   sudo mv vault $loc
   sudo setcap cap_ipc_lock=+ep $loc
+}
+
+function install_vault_tls_keys {
+  local -r bucket="$1"
+  local -r key="$2"
+  local -r cert="$3"
+  local -r path="$4"
+  log_info "Copying TLS keys binary to local"
+  aws s3 cp ${bucket}/${key} "${TMP_DIR}"
+  ex_c=$?
+  log_info "key copy exit code == $ex_c"
+  if [ $ex_c -ne 0 ]
+  then
+    log_error "The copy of the key from ${bucket}/${key} failed"
+    exit
+  else
+    log_info "Copy of key successful"
+  fi
+
+  aws s3 cp ${bucket}/${cert} "${TMP_DIR}"
+  ex_c=$?
+  log_info "cert copy exit code == $ex_c"
+  if [ $ex_c -ne 0 ]
+  then
+    log_error "The copy of the cert from ${loc}/${bin} failed"
+    exit
+  else
+    log_info "Copy of cert successful"
+  fi
+
+  sudo cp ${TMP_DIR}/${key} ${TMP_DIR}/${cert} $path
+  sudo chown -R root:root $c_path
+  sudo chmod 400 ${path}/${key} ${path}/${cert}
 }
 
 function create_vault_service {
@@ -218,7 +264,7 @@ EOF
 }
 
 function install {
-
+  mkdir $TMP_DIR
   while [[ $# > 0 ]]; do
     local key="$1"
 
@@ -227,8 +273,20 @@ function install {
         print_usage
         exit
         ;;
-      --dl)
-        dl="$2"
+      --install-bucket)
+        ib="$2"
+        shift
+        ;;
+      --vault-bin)
+        vb="$2"
+        shift
+        ;;
+      --key)
+        k="$2"
+        shift
+        ;;
+      --cert)
+        c="$2"
         shift
         ;;
       *)
@@ -241,16 +299,21 @@ function install {
     shift
   done
 
-  assert_not_empty "--dl" "$dl"
+  assert_not_empty "--install-bucket" "$ib"
+  assert_not_empty "--vault-bin" "$vb"
+  assert_not_empty "--key" "$k"
+  assert_not_empty "--cert" "$c"
 
   log_info "Starting Vault install"
   install_dependencies
   create_vault_user "$DEFAULT_VAULT_USER"
-  get_vault_binary "$dl" "$TMP_DIR" "$TMP_ZIP"
+  get_vault_binary "$ib" "$vb" "$TMP_DIR" "$TMP_ZIP"
   install_vault "$DEFAULT_INSTALL_PATH" "$TMP_DIR" "$TMP_ZIP"
-  create_vault_install_paths "$DEFAULT_VAULT_PATH" "$DEFAULT_VAULT_USER" "$DEFAULT_VAULT_CONFIG"
+  create_vault_install_paths "$DEFAULT_VAULT_PATH" "$DEFAULT_VAULT_CERTS" "$DEFAULT_VAULT_USER" "$DEFAULT_VAULT_CONFIG" "$k" "$c"
+  install_vault_tls_keys "$ib" "$k" "$c" "$DEFAULT_VAULT_CERTS"
   create_vault_service "$DEFAULT_VAULT_SERVICE"
   log_info "Vault install complete!"
+  sudo rm -rf $TMP_DIR
 }
 
 install "$@"

@@ -1,17 +1,16 @@
 {
-  "description": "This is a basic packer file for building a simple AWS AMI containing vault and consul",
+  "description": "This is a basic packer file for building a simple AWS AMI containing consul",
   "variables": {
     "install_bucket": "s3://irg-personal/Packer",
-    "vault_bin": "vault-enterprise_1.0.0-rc1_prem_linux_amd64.zip",
     "consul_version": "1.3.1",
-    "key": "key.pem",
-    "cert": "cert.pem",
     "source_ami": "ami-02790d1ebf3b5181d",
     "os_version_tag": "Ubuntu 18.04 LTS",
     "ssh_user": "ubuntu",
     "aws_region": "eu-west-1",
     "inst_type": "t2.micro",
-    "inst_profile": "Packer-S3-Access"
+    "inst_profile": "Packer-S3-Access",
+    "tag": "MY_TEST_CONSUL_CLUSTER",
+    "siz": "3"
   },
   "builders": [
     {
@@ -40,8 +39,7 @@
     {
       "type": "shell",
       "inline": [
-        "bash /tmp/install_scripts/install-vault.sh --install-bucket {{user `install_bucket`}} --vault-bin {{user `vault_bin`}} --key {{user `key`}} --cert  {{user `cert`}}"
-        "bash /tmp/install_scripts/install-consul.sh --install-bucket {{user `install_bucket`}} --version {{user `consul_version`}} --client"
+        "bash /tmp/install_scripts/install-consul.sh --install-bucket {{user `install_bucket`}} --version {{user `consul_version`}} --tag {{user `tag`}} --cluster-size {{user `siz`}}
       ]
     }
   ]

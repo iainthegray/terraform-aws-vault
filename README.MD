@@ -54,8 +54,6 @@ module vault_cluster {
 }
 ```
 # TODO
-packer for Centos
-Vault TLS
 Consul install - add to packer
 Consul ACL
 vault consul backend config
