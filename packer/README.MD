@@ -19,4 +19,7 @@ All inputs are variables and are explained here:
 * "tag": The consul cluster tag value for consul cluster joining
 * "siz": The number of consul servers expected in the cluster.
 
-The install_scripts dir contains the install scripts that do the actual lifting for the install.
+The install_files dir contains the install scripts that do the actual lifting for the install.
+
+## Usage
+To run this you will need to copy the Vault binary to the install S3 bucket and the TLS key and cert required for TLS

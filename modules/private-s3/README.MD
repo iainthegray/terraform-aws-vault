@@ -1,6 +1,6 @@
 # Private S3 bucket module
 
-This module is designed to give access to an S3 bucket and assign this policy to a role. It optionally creates an S3 bucket based on the variable var.create_bucket or uses a pre-existing one. The purpose is to allow an S3 bucket to be accessed by instances that have the role so that they can download files from it for install.
+This module is designed to optionally create an S3 bucket and assign access via a policy to a role. It optionally creates an S3 bucket based on the variable var.create_bucket or uses a pre-existing one. The purpose is to allow an S3 bucket to be accessed by instances that have the role so that they can download files from it for install.
 It also optionally creates an IAM role that can be assigned to a IAM user for access to the same bucket.
 
 ## Usage
@@ -22,3 +22,4 @@ module private_s3 {
   my_user                      = "bobby-bobbins"
 
 }
+```

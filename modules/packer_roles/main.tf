@@ -1,9 +1,11 @@
 terraform {
   required_version = ">= 0.11.10"
 }
+
 provider "aws" {
   region = "${var.aws_region}"
 }
+
 /*------------------------------------------------------------------------------
 The module simply takes 2 variables and creates a role with policies to allow Packer
 to create AMIs and acces a private bucket.

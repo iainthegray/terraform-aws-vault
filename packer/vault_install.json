@@ -11,7 +11,9 @@
     "ssh_user": "ubuntu",
     "aws_region": "eu-west-1",
     "inst_type": "t2.micro",
-    "inst_profile": "Packer-S3-Access"
+    "inst_profile": "Packer-S3-Access",
+    "cluster_size": "3",
+    "cluster_tag": "My_consul_cluster"
   },
   "builders": [
     {
@@ -34,14 +36,14 @@
   "provisioners": [
     {
       "type": "file",
-      "source": "{{template_dir}}/install_scripts",
+      "source": "{{template_dir}}/install_files",
       "destination": "/tmp"
     },
     {
       "type": "shell",
       "inline": [
-        "bash /tmp/install_scripts/install-vault.sh --install-bucket {{user `install_bucket`}} --vault-bin {{user `vault_bin`}} --key {{user `key`}} --cert  {{user `cert`}}"
-        "bash /tmp/install_scripts/install-consul.sh --install-bucket {{user `install_bucket`}} --version {{user `consul_version`}} --client"
+        "bash ins/install-consul.sh --install-bucket {{user `install_bucket`}} --version {{user `consul_version`}} --client 1 --tag {{user `cluster_tag`}} --cluster-size {{user `cluster_size`}}"
+        "bash /tmp/install_files/install-vault.sh --install-bucket {{user `install_bucket`}} --vault-bin {{user `vault_bin`}} --key {{user `key`}} --cert  {{user `cert`}}"
       ]
     }
   ]

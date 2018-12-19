@@ -21,6 +21,7 @@ resource "aws_instance" "vault-instance" {
   key_name                    = "${var.ssh_key_name}"
   vpc_security_group_ids      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
   subnet_id                   = "${element(var.private_subnets, count.index)}"
+  user_data                   = "${data.template_file.vault_user_data.rendered}"
 
   tags = {
     Name = "vault_server-${count.index}"
@@ -40,10 +41,12 @@ resource "aws_instance" "consul-instance" {
   associate_public_ip_address = false
   key_name                    = "${var.ssh_key_name}"
   vpc_security_group_ids      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
+  user_data                   = "${data.template_file.consul_user_data.rendered}"
   subnet_id                   = "${element(var.private_subnets, count.index)}"
 
   tags = {
-    Name = "consul_server-${count.index}"
+    Name               = "consul_server-${count.index}"
+    CONSUL_CLUSTER_TAG = "${var.cluster_tag}"
   }
 }
 
@@ -53,12 +56,12 @@ variable var.use_asg = true
 ------------------------------------------------------------------------------*/
 
 resource "aws_launch_configuration" "vault_instance_asg" {
-  count           = "${(var.use_asg ? 1 : 0)}"
-  name_prefix     = "${var.cluster_name}-"
-  image_id        = "${var.ami_id}"
-  instance_type   = "${var.instance_type}"
+  count                = "${(var.use_asg ? 1 : 0)}"
+  name_prefix          = "${var.cluster_name}-"
+  image_id             = "${var.ami_id}"
+  instance_type        = "${var.instance_type}"
   iam_instance_profile = "${aws_iam_instance_profile.cluster_server.id}"
-  security_groups = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
+  security_groups      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
 }
 
 resource "aws_autoscaling_group" "vault_asg" {
@@ -206,4 +209,45 @@ resource "aws_iam_role_policy" "cluster_server" {
   name   = "cluster-server-${var.global_region}"
   role   = "${aws_iam_role.cluster_server.id}"
   policy = "${file("${path.module}/provisioning/files/cluster-server-role-policy.json")}"
+}
+
+/*--------------------------------------------------------------
+S3 IAM Role and Policy to allow access to the userdata install files
+--------------------------------------------------------------*/
+resource "aws_iam_role_policy" "s3-access" {
+  name   = "s3-access-install-${var.global_region}"
+  role   = "${aws_iam_role.cluster_server.id}"
+  policy = "${data.template_file.s3_iam_policy.rendered}"
+}
+
+data "template_file" "s3_iam_policy" {
+  template = "${file("${path.module}/provisioning/templates/s3-access-role.json.tpl")}"
+
+  vars {
+    s3-bucket-name = "${var.install_bucket}"
+  }
+}
+/* This is the set up of the userdata template file for the install */
+data "template_file" "vault_user_data" {
+  template = "${file("${path.module}/provisioning/templates/vault_ud.tpl")}"
+
+  vars {
+    install_bucket = "${var.install_bucket}"
+    vault_bin      = "${var.vault_bin}"
+    key_pem        = "${var.key_pem}"
+    cert_pem       = "${var.cert_pem}"
+    consul_version = "${var.consul_version}"
+    cluster_tag    = "${var.cluster_tag}"
+    consul_cluster_size   = "${var.consul_cluster_size}"
+  }
+}
+data "template_file" "consul_user_data" {
+  template = "${file("${path.module}/provisioning/templates/consul_ud.tpl")}"
+
+  vars {
+    install_bucket = "${var.install_bucket}"
+    consul_version = "${var.consul_version}"
+    cluster_tag    = "${var.cluster_tag}"
+    consul_cluster_size   = "${var.consul_cluster_size}"
+  }
 }

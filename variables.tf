@@ -204,3 +204,41 @@ variable "health_check_timeout" {
   type        = "string"
   default     = 5
 }
+
+/* Userdata variables */
+
+variable "install_bucket" {
+  description = "The name of the private bucket the install files are stored in."
+  type        = "string"
+  default     = ""
+}
+
+variable "cert_pem" {
+  description = "The name of the TLS cert in the S3 bucket install_files."
+  type        = "string"
+  default     = ""
+}
+
+variable "key_pem" {
+  description = "The name of the TLS key in the S3 bucket install_files."
+  type        = "string"
+  default     = ""
+}
+
+variable "vault_bin" {
+  description = "The name of the vault binary in zip format in the S3 bucket install_files."
+  type        = "string"
+  default     = ""
+}
+
+variable "consul_version" {
+  description = "The version of OSS consul to install. Must be in format of consul versioning. e.g. 1.3.1"
+  type        = "string"
+  default     = ""
+}
+
+variable "cluster_tag" {
+  description = "The tag value for consul auto-join."
+  type        = "string"
+  default     = "My_consul_cluster"
+}

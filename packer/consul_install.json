@@ -33,13 +33,13 @@
   "provisioners": [
     {
       "type": "file",
-      "source": "{{template_dir}}/install_scripts",
+      "source": "{{template_dir}}/install_files",
       "destination": "/tmp"
     },
     {
       "type": "shell",
       "inline": [
-        "bash /tmp/install_scripts/install-consul.sh --install-bucket {{user `install_bucket`}} --version {{user `consul_version`}} --tag {{user `tag`}} --cluster-size {{user `siz`}}
+        "bash /tmp/install_files/install-consul.sh --install-bucket {{user `install_bucket`}} --version {{user `consul_version`}} --tag {{user `tag`}} --cluster-size {{user `siz`}}
       ]
     }
   ]
