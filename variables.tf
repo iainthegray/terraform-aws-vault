@@ -14,15 +14,16 @@ variable "use_elb" {
   default     = false
 }
 
+variable "use_userdata" {
+  description = "a variable set to true or false depending on whether the vault cluster will be configured using the userdata scripts or not"
+  type        = "string"
+  default     = false
+}
+
 /*------------------------------------------------
 Vault Cluster Variables
 Variables that define the cluster instances
 ------------------------------------------------*/
-variable "global_region" {
-  description = "the region vault cluster will be deployed into"
-  type        = "string"
-}
-
 variable "cluster_name" {
   description = "The name of the Vault cluster (e.g. vault-stage). This variable is used to namespace all resources created by this module."
   type        = "string"
@@ -43,10 +44,6 @@ variable "ssh_key_name" {
   type        = "string"
 }
 
-variable "additional_sg_ids" {
-  description = "A list of security groups to attach to instances in the vault cluster beyond the standard vault ones"
-  type        = "list"
-}
 
 variable "private_subnets" {
   description = "A list private subnets the vault cluster will be deployed into"
@@ -70,24 +67,6 @@ Cluster size variables
 ------------------------------------------------*/
 variable "vault_cluster_size" {
   description = "The size (number of instances) in the Vault cluster without an ASG"
-  type        = "string"
-  default     = 3
-}
-
-variable "vault_cluster_size_min" {
-  description = "The min size (number of instances) in the Vault cluster ASG"
-  type        = "string"
-  default     = 3
-}
-
-variable "vault_cluster_size_max" {
-  description = "The max size (number of instances) in the Vault cluster ASG"
-  type        = "string"
-  default     = 3
-}
-
-variable "vault_cluster_size_des" {
-  description = "The desired size (number of instances) in the Vault cluster ASG"
   type        = "string"
   default     = 3
 }
@@ -210,35 +189,42 @@ variable "health_check_timeout" {
 variable "install_bucket" {
   description = "The name of the private bucket the install files are stored in."
   type        = "string"
-  default     = ""
+  default     = "my_bucket"
 }
 
 variable "cert_pem" {
   description = "The name of the TLS cert in the S3 bucket install_files."
   type        = "string"
-  default     = ""
+  default     = "cert.pem"
 }
 
 variable "key_pem" {
   description = "The name of the TLS key in the S3 bucket install_files."
   type        = "string"
-  default     = ""
+  default     = "key.pem"
 }
 
 variable "vault_bin" {
   description = "The name of the vault binary in zip format in the S3 bucket install_files."
   type        = "string"
-  default     = ""
+  default     = "vault.zip"
 }
 
 variable "consul_version" {
   description = "The version of OSS consul to install. Must be in format of consul versioning. e.g. 1.3.1"
   type        = "string"
-  default     = ""
+  default     = "1.3.1"
 }
 
 variable "cluster_tag" {
   description = "The tag value for consul auto-join."
   type        = "string"
   default     = "My_consul_cluster"
+}
+/* Aditional security group ids to add to the vault and consul cluster */
+
+variable "additional_sg_ids" {
+  description = "A list of security groups to attach to instances in the vault cluster beyond the standard vault ones"
+  type        = "list"
+  default = []
 }

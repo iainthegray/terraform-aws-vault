@@ -71,9 +71,9 @@ resource "aws_autoscaling_group" "vault_asg" {
   availability_zones   = ["${var.availability_zones}"]
   vpc_zone_identifier  = ["${var.private_subnets}"]
 
-  min_size             = "${var.vault_cluster_size_min}"
-  max_size             = "${var.vault_cluster_size_max}"
-  desired_capacity     = "${var.vault_cluster_size_des}"
+  min_size             = "${var.vault_cluster_size}"
+  max_size             = "${var.vault_cluster_size}"
+  desired_capacity     = "${var.vault_cluster_size}"
   termination_policies = ["${var.termination_policies}"]
 
   health_check_type         = "EC2"
@@ -195,18 +195,18 @@ resource "aws_security_group_rule" "vault_cluster_allow_egress_all" {
  servers to join a cluster.
 ------------------------------------------------------------------------------*/
 resource "aws_iam_instance_profile" "cluster_server" {
-  name = "cluster-server-${var.global_region}"
+  name = "cluster-server-${var.cluster_name}"
   role = "${aws_iam_role.cluster_server.name}"
 }
 
 resource "aws_iam_role" "cluster_server" {
-  name               = "cluster-server-${var.global_region}"
+  name               = "cluster-server-${var.cluster_name}"
   path               = "/"
   assume_role_policy = "${file("${path.module}/provisioning/files/cluster-server-role.json")}"
 }
 
 resource "aws_iam_role_policy" "cluster_server" {
-  name   = "cluster-server-${var.global_region}"
+  name   = "cluster-server-${var.cluster_name}"
   role   = "${aws_iam_role.cluster_server.id}"
   policy = "${file("${path.module}/provisioning/files/cluster-server-role-policy.json")}"
 }
@@ -215,7 +215,7 @@ resource "aws_iam_role_policy" "cluster_server" {
 S3 IAM Role and Policy to allow access to the userdata install files
 --------------------------------------------------------------*/
 resource "aws_iam_role_policy" "s3-access" {
-  name   = "s3-access-install-${var.global_region}"
+  name   = "s3-access-install-${var.cluster_name}"
   role   = "${aws_iam_role.cluster_server.id}"
   policy = "${data.template_file.s3_iam_policy.rendered}"
 }
