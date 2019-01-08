@@ -2,16 +2,16 @@
 # This script is used to do the final config of vault and consul as per the
 # deployment guide: https://www.vaultproject.io/guides/operations/deployment-guide.html
 
-local -r TMP_DIR="/tmp/ins"
+TMP_DIR="/tmp/ins"
 
 function print_usage {
   echo
   echo "Usage: final_config.sh [OPTIONS]"
   echo "Options:"
   echo
-  echo -e "  --consul-ips\t\t A comma separated string in \" no spaces of consul server IPs."
+  echo -e "  --consul-ips\t\t A comma separated string in \" no spaces of consul server IPs. Required"
   echo
-  echo -e "  --vault-ips\t\t A comma separated string in \" no spaces of vault server IPs."
+  echo -e "  --vault-ips\t\t A comma separated string in \" no spaces of vault server IPs. Required"
   echo
   echo "This script can be used to install Consul as a backend to Vault. It has been tested with Ubuntu 18.04 and Centos 7."
   echo
@@ -23,6 +23,18 @@ function log {
   local -r message="$3"
   local -r timestamp=$(date +"%Y-%m-%d %H:%M:%S")
   >&2 echo -e "${timestamp} [${level}] [${func}] ${message}"
+}
+
+function assert_not_empty {
+  local func="assert_not_empty"
+  local -r arg_name="$1"
+  local -r arg_value="$2"
+
+  if [[ -z "$arg_value" ]]; then
+    log "ERROR" "$func" "The value for '$arg_name' cannot be empty"
+    print_usage
+    exit 1
+  fi
 }
 
 function consul_action {

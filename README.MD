@@ -169,3 +169,15 @@ This script performs the following functions:
 
 This will then complete the configuration of the vault cluster as per the deployment guide.
 For ease of use the consul master token is output by the script and should be saved (possibly as a vault static secret) if this may be required again.
+
+To use this script:
+copy this script to a suitable host that has ssh access to all your vault and consul Servers
+```
+Usage: final_config.sh [OPTIONS]
+Options:
+
+  --consul-ips		 A comma separated string in " no spaces of consul server IPs.
+
+  --vault-ips		 A comma separated string in " no spaces of vault server IPs.
+
+```
