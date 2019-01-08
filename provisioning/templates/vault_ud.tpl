@@ -31,7 +31,8 @@ function do_install {
   bash ins/install-vault.sh --install-bucket ${install_bucket} --vault-bin ${vault_bin} --key ${key_pem} --cert  ${cert_pem}
 }
 
-if [ ${use_userdata} == 'true' ]
+echo "USE USERDATA = ${use_userdata}"
+if [ ${use_userdata} -eq 1 ]
 then
   do_install
 else

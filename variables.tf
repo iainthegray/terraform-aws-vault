@@ -29,8 +29,13 @@ variable "cluster_name" {
   type        = "string"
 }
 
-variable "ami_id" {
-  description = "The ID of the AMI to run in this cluster. Should be an AMI that had Vault installed and configured by the install-vault module."
+variable "vault_ami_id" {
+  description = "The ID of the AMI to run in this cluster for the vault servers."
+  type        = "string"
+}
+
+variable "consul_ami_id" {
+  description = "The ID of the AMI to run in this cluster for the consul servers."
   type        = "string"
 }
 

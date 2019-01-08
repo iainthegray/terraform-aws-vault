@@ -26,10 +26,11 @@ function do_install {
   mkdir ins
   aws s3 cp "s3://${install_bucket}/Packer/install-consul.sh" ins
   aws s3 cp "s3://${install_bucket}/Packer/install-vault.sh" ins
+  aws s3 cp "s3://${install_bucket}/Packer/install-final.sh" ins
   bash ins/install-consul.sh --install-bucket ${install_bucket} --version ${consul_version} --client 0 --tag "${cluster_tag}" --cluster-size ${consul_cluster_size}
 }
 
-if [ ${use_userdata} == 'true' ]
+if [ ${use_userdata} -eq 1 ]
 then
   do_install
 else

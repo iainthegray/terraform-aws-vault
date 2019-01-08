@@ -13,7 +13,7 @@ defined only if the variable var.use_asg = false (default)
 ------------------------------------------------------------------------------*/
 
 resource "aws_instance" "vault-instance" {
-  ami                         = "${var.ami_id}"
+  ami                         = "${var.vault_ami_id}"
   count                       = "${(var.use_asg ? 0 : var.vault_cluster_size)}"
   instance_type               = "${var.instance_type}"
   iam_instance_profile        = "${aws_iam_instance_profile.cluster_server.id}"
@@ -34,7 +34,7 @@ not built inside an ASG (coz)
 ------------------------------------------------------------------------------*/
 
 resource "aws_instance" "consul-instance" {
-  ami                         = "${var.ami_id}"
+  ami                         = "${var.consul_ami_id}"
   count                       = "${var.consul_cluster_size}"
   instance_type               = "${var.instance_type}"
   iam_instance_profile        = "${aws_iam_instance_profile.cluster_server.id}"
@@ -58,7 +58,7 @@ variable var.use_asg = true
 resource "aws_launch_configuration" "vault_instance_asg" {
   count                = "${(var.use_asg ? 1 : 0)}"
   name_prefix          = "${var.cluster_name}-"
-  image_id             = "${var.ami_id}"
+  image_id             = "${var.vault_ami_id}"
   instance_type        = "${var.instance_type}"
   iam_instance_profile = "${aws_iam_instance_profile.cluster_server.id}"
   security_groups      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
@@ -232,6 +232,7 @@ data "template_file" "vault_user_data" {
   template = "${file("${path.module}/provisioning/templates/vault_ud.tpl")}"
 
   vars {
+    use_userdata   = "${var.use_userdata}"
     install_bucket = "${var.install_bucket}"
     vault_bin      = "${var.vault_bin}"
     key_pem        = "${var.key_pem}"
@@ -245,6 +246,7 @@ data "template_file" "consul_user_data" {
   template = "${file("${path.module}/provisioning/templates/consul_ud.tpl")}"
 
   vars {
+    use_userdata   = "${var.use_userdata}"
     install_bucket = "${var.install_bucket}"
     consul_version = "${var.consul_version}"
     cluster_tag    = "${var.cluster_tag}"

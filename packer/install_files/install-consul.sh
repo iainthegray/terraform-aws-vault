@@ -42,32 +42,19 @@ function print_usage {
 
 function log {
   local -r level="$1"
-  local -r message="$2"
+  local -r func="$2"
+  local -r message="$3"
   local -r timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-  >&2 echo -e "${timestamp} [${level}] [$SCRIPT_NAME] ${message}"
-}
-
-function log_info {
-  local -r message="$1"
-  log "INFO" "$message"
-}
-
-function log_warn {
-  local -r message="$1"
-  log "WARN" "$message"
-}
-
-function log_error {
-  local -r message="$1"
-  log "ERROR" "$message"
+  >&2 echo -e "${timestamp} [${level}] [${SCRIPT_NAME}:${func}] ${message}"
 }
 
 function assert_not_empty {
+  local func="assert_not_empty"
   local -r arg_name="$1"
   local -r arg_value="$2"
 
   if [[ -z "$arg_value" ]]; then
-    log_error "The value for '$arg_name' cannot be empty"
+    log "ERROR" "$func" "The value for '$arg_name' cannot be empty"
     print_usage
     exit 1
   fi
@@ -82,7 +69,8 @@ function has_apt_get {
 }
 
 function install_dependencies {
-  log_info "Installing dependencies"
+  local func="install_dependencies"
+  log "INFO" $func "Installing dependencies"
 
   if $(has_apt_get); then
     sudo apt-get update -y
@@ -94,7 +82,7 @@ function install_dependencies {
     sudo yum install -y python-pip
     sudo pip install awscli
   else
-    log_error "Could not find apt-get or yum. Cannot install dependencies on this OS."
+    log "ERROR" $func "Could not find apt-get or yum. Cannot install dependencies on this OS."
     exit 1
   fi
 }
@@ -105,17 +93,19 @@ function user_exists {
 }
 
 function create_consul_user {
+  local func="create_consul_user"
   local -r username="$1"
 
   if $(user_exists "$username"); then
-    log_info "User $username already exists. Will not create again."
+    log "INFO" $func "User $username already exists. Will not create again."
   else
-    log_info "Creating user named $username"
+    log "INFO" $func "Creating user named $username"
     sudo useradd --system --home /etc/consul.d --shell /bin/false $username
   fi
 }
 
 function create_consul_install_paths {
+  local func="create_consul_install_paths"
   local -r path="$1"
   local -r username="$2"
   local -r config="$3"
@@ -123,9 +113,9 @@ function create_consul_install_paths {
   local -r client="$5"
   local -r tag_val="$6"
   local -r bs_exp="$7"
-  log_info "path = $path username=$username config = $config opt = $opt client = $client tag_val = $tag_val bs = $bs_exp"
+  log "INFO" $func "path = $path username=$username config = $config opt = $opt client = $client tag_val = $tag_val bs = $bs_exp"
 
-  log_info "Creating install dirs for Consul at $path"
+  log "INFO" $func "Creating install dirs for Consul at $path"
   sudo mkdir -p "$path"
   sudo mkdir -p "$opt"
 
@@ -134,17 +124,18 @@ function create_consul_install_paths {
 datacenter = "dc1"
 data_dir = "/opt/consul"
 # encrypt = "{{ key from keygen }}"
-acl_datacenter =  "dc1"
-acl_default_policy =  "deny"
-acl_down_policy =  "extend-cache"
 retry_join = ["provider=aws  tag_key=CONSUL_CLUSTER_TAG  tag_value=${tag_val}"]
 performance {
   raft_multiplier = 1
 }
+acl_datacenter =  "dc1"
+acl_default_policy =  "deny"
+acl_down_policy =  "extend-cache"
+acl_agent_token = {{ acl_token }}
 EOF
   if [[ $client -eq 0 ]]
   then
-    log_info "Installing a consul server"
+    log "INFO" $func "Installing a consul server"
     sudo cat << EOF >> ${TMP_DIR}/outy
 server = true
 bootstrap_expect = ${bs_exp}
@@ -152,19 +143,20 @@ ui = true
 EOF
 
   else
-    log_info "Installing a consul client"
+    log "INFO" $func "Installing a consul client"
   fi
 sudo cp ${TMP_DIR}/outy ${path}$config
 sudo chmod 640 ${path}$config
-log_info "Changing ownership of $path to $username"
+log "INFO" $func "Changing ownership of $path to $username"
 sudo chown -R "$username:$username" "$path"
 sudo chown -R "$username:$username" "$opt"
 }
 
 function get_consul_binary {
+  local func="get_consul_binary"
   local -r ver="$1"
 
-  log_info "Copying consul version $ver binary to local"
+  log "INFO" $func "Copying consul version $ver binary to local"
   cd $TMP_DIR
   curl -Os https://releases.hashicorp.com/consul/${ver}/consul_${ver}_linux_386.zip
   curl -Os https://releases.hashicorp.com/consul/${ver}/consul_${ver}_SHA256SUMS
@@ -173,34 +165,36 @@ function get_consul_binary {
   ex_c=$?
   if [ $ex_c -ne 0 ]
   then
-    log_error "The copy of the consul binary failed"
+    log "ERROR" $func "The copy of the consul binary failed"
     exit
   else
-    log_info "Copy of consul binary successful"
+    log "INFO" $func "Copy of consul binary successful"
   fi
   echo "consul_${ver}_linux_386.zip"
   if [ $? -ne 0 ]
   then
-    log_error "Supplied consul binary is not a zip file"
+    log "ERROR" $func "Supplied consul binary is not a zip file"
     exit
   fi
 }
 
 function install_consul {
+  local func="install_consul"
   local -r loc="$1"
   local -r tmp="$2"
   local -r ver="$3"
 
-  log_info "Installing Consul"
+  log "INFO" $func "Installing Consul"
   cd ${tmp} && unzip -q consul_${ver}_linux_386.zip
   sudo chown root:root consul
   sudo cp consul $loc
 }
 
 function create_consul_service {
+  local func="create_consul_service"
   local -r service="$1"
 
-  log_info "Creating Consul service"
+  log "INFO" $func "Creating Consul service"
   cat <<EOF > /tmp/outy
   [Unit]
   Description="HashiCorp Consul - A service mesh solution"
@@ -227,24 +221,8 @@ EOF
 
 }
 
-function consul_acl {
-  log_info "starting Consul"
-  sudo systemctl start consul
-  sleep 2
-  sudo systemctl status consul
-  sleep 20
-  MT=`curl --request PUT http://127.0.0.1:8500/v1/acl/bootstrap |cut -d'"' -f4`
-  AT=`curl  --request PUT  --header "X-Consul-Token: ${MT}" --data '{"Name": "Agent Token", "Type": "client", "Rules": "node \"\" { policy = \"write\" } service \"\" { policy = \"read\" }"}' http://127.0.0.1:8500/v1/acl/create | cut -d'"' -f4`
-  sudo echo "acl_agent_token = \"$AT\"" >> /etc/consul.d/consul.hcl
-  sudo systemctl restart consul
-  echo $MT > /etc/consul.d/mt.txt
-  sleep 10
-  log_info "curl --request PUT  --header \"X-Consul-Token: ${MT}\" "
-  VT=`curl --request PUT  --header "X-Consul-Token: ${MT}" --data '{"Name": "Vault Token", "Type": "client", "Rules": "node \"\" { policy = \"write\" } service \"vault\" { policy = \"write\" } agent \"\" { policy = \"write\" }  key \"vault\" { policy = \"write\" } session \"\" { policy = \"write\" } "}' http://127.0.0.1:8500/v1/acl/create | cut -d'"' -f4`
-  sudo echo $VT > /etc/consul.d/vt.txt
-}
-
 function install {
+  local func="install"
   sudo rm -rf $TMP_DIR
   mkdir $TMP_DIR
   while [[ $# > 0 ]]; do
@@ -276,7 +254,7 @@ function install {
         shift
         ;;
       *)
-        log_error "Unrecognized argument: $key"
+        log "ERROR" $func "Unrecognized argument: $key"
         print_usage
         exit 1
         ;;
@@ -291,15 +269,14 @@ function install {
   assert_not_empty "--cluster-size" "$siz"
   assert_not_empty "--client" "$c"
 
-  log_info "Starting Consul install"
+  log "INFO" $func "Starting Consul install"
   install_dependencies
   create_consul_user "$DEFAULT_CONSUL_USER"
   get_consul_binary "$v"
   install_consul "$DEFAULT_INSTALL_PATH" "$TMP_DIR" "$v"
   create_consul_install_paths "$DEFAULT_CONSUL_PATH" "$DEFAULT_CONSUL_USER" "$DEFAULT_CONSUL_CONFIG" "$DEFAULT_CONSUL_OPT" "$c" "$tag" "$siz"
   create_consul_service "$DEFAULT_CONSUL_SERVICE"
-  # consul_acl
-  log_info "Consul install complete!"
+  log "INFO" $func "Consul install complete!"
   sudo rm -rf $TMP_DIR
 }
 

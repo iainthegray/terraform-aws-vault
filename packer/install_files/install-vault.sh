@@ -41,32 +41,19 @@ function print_usage {
 
 function log {
   local -r level="$1"
-  local -r message="$2"
+  local -r func="$2"
+  local -r message="$3"
   local -r timestamp=$(date +"%Y-%m-%d %H:%M:%S")
-  >&2 echo -e "${timestamp} [${level}] [$SCRIPT_NAME] ${message}"
-}
-
-function log_info {
-  local -r message="$1"
-  log "INFO" "$message"
-}
-
-function log_warn {
-  local -r message="$1"
-  log "WARN" "$message"
-}
-
-function log_error {
-  local -r message="$1"
-  log "ERROR" "$message"
+  >&2 echo -e "${timestamp} [${level}] [${SCRIPT_NAME}:${func}] ${message}"
 }
 
 function assert_not_empty {
+  local func="assert_not_empty"
   local -r arg_name="$1"
   local -r arg_value="$2"
 
   if [[ -z "$arg_value" ]]; then
-    log_error "The value for '$arg_name' cannot be empty"
+    log "ERROR" $func "The value for '$arg_name' cannot be empty"
     print_usage
     exit 1
   fi
@@ -81,7 +68,8 @@ function has_apt_get {
 }
 
 function install_dependencies {
-  log_info "Installing dependencies"
+  local func="install_dependencies"
+  log "INFO" $func "Installing dependencies"
 
   if $(has_apt_get); then
     sudo apt-get update -y
@@ -93,7 +81,7 @@ function install_dependencies {
     sudo yum install -y python-pip
     sudo pip install awscli
   else
-    log_error "Could not find apt-get or yum. Cannot install dependencies on this OS."
+    log "ERROR" $func "Could not find apt-get or yum. Cannot install dependencies on this OS."
     exit 1
   fi
 }
@@ -104,17 +92,19 @@ function user_exists {
 }
 
 function create_vault_user {
+  local func="create_vault_user"
   local -r username="$1"
 
   if $(user_exists "$username"); then
-    log_info "User $username already exists. Will not create again."
+    log "INFO" $func "User $username already exists. Will not create again."
   else
-    log_info "Creating user named $username"
+    log "INFO" $func "Creating user named $username"
     sudo useradd --system --home /etc/vault.d --shell /bin/false $username
   fi
 }
 
 function create_vault_install_paths {
+  local func="create_vault_install_paths"
   local -r path="$1"
   local -r c_path="$2"
   local -r username="$3"
@@ -122,7 +112,7 @@ function create_vault_install_paths {
   local -r key="$5"
   local -r cert="$6"
 
-  log_info "Creating install dirs for Vault at $path"
+  log "INFO" $func "Creating install dirs for Vault at $path"
   sudo mkdir -p "$path"
   sudo mkdir -p "$c_path"
   # VT=`cat /etc/consul.d/vt.txt`
@@ -137,7 +127,7 @@ listener "tcp" {
 storage "consul" {
   address = "127.0.0.1:8500"
   path = "vault/"
-  token = "$VT"
+  token = "{{ vault_token }}"
 }
 
 ui = true
@@ -146,44 +136,45 @@ EOF
 
   sudo cp ${TMP_DIR}/outy ${path}$config
   sudo chmod 640 ${path}$config
-  log_info "Changing ownership of $path to $username"
+  log "INFO" $func "Changing ownership of $path to $username"
   sudo chown -R "$username:$username" "$path"
 }
 
 function get_vault_binary {
-
+  local func="get_vault_binary"
   local -r loc="$1"
   local -r bin="$2"
   local -r tmp="$3"
   local -r zip="$4"
 
-  log_info "Copying vault binary to local"
-  log_info "s3://${loc}/Packer/${bin}  ${tmp}/${zip}"
+  log "INFO" $func "Copying vault binary to local"
+  log "INFO" $func "s3://${loc}/Packer/${bin}  ${tmp}/${zip}"
   aws s3 cp "s3://${loc}/Packer/${bin}" "${tmp}/${zip}"
   ex_c=$?
-  log_info "s3 copy exit code == $ex_c"
+  log "INFO" $func "s3 copy exit code == $ex_c"
   if [ $ex_c -ne 0 ]
   then
-    log_error "The copy of the vault binary from ${loc}/${bin} failed"
+    log "ERROR" $func "The copy of the vault binary from ${loc}/${bin} failed"
     exit
   else
-    log_info "Copy of vault binary successful"
+    log "INFO" $func "Copy of vault binary successful"
   fi
   unzip -tqq ${tmp}/${zip}
   if [ $? -ne 0 ]
   then
-    log_error "Supplied Vault binary is not a zip file"
+    log "ERROR" $func "Supplied Vault binary is not a zip file"
     exit
   fi
 }
 
 function install_vault {
+  local func="install_vault"
   local -r loc="$1"
   local -r tmp="$2"
   local -r zip="$3"
 
 
-  log_info "Installing Vault"
+  log "INFO" $func "Installing Vault"
   cd ${tmp} && unzip -q ${zip}
   sudo chown root:root vault
   sudo mv vault $loc
@@ -191,31 +182,32 @@ function install_vault {
 }
 
 function install_vault_tls_keys {
+  local func="install_vault_tls_keys"
   local -r bucket="$1"
   local -r key="$2"
   local -r cert="$3"
   local -r path="$4"
-  log_info "Copying TLS keys binary to local"
+  log "INFO" $func "Copying TLS keys binary to local"
   aws s3 cp "s3://${bucket}/Packer/${key}" "${TMP_DIR}"
   ex_c=$?
-  log_info "key copy exit code == $ex_c"
+  log "INFO" $func "key copy exit code == $ex_c"
   if [ $ex_c -ne 0 ]
   then
-    log_error "The copy of the key from ${bucket}/${key} failed"
+    log "ERROR" $func "The copy of the key from ${bucket}/${key} failed"
     exit
   else
-    log_info "Copy of key successful"
+    log "INFO" $func "Copy of key successful"
   fi
 
   aws s3 cp "s3://${bucket}/Packer/${cert}" "${TMP_DIR}"
   ex_c=$?
-  log_info "cert copy exit code == $ex_c"
+  log "INFO" $func "cert copy exit code == $ex_c"
   if [ $ex_c -ne 0 ]
   then
-    log_error "The copy of the cert from ${loc}/${bin} failed"
+    log "ERROR" $func "The copy of the cert from ${loc}/${bin} failed"
     exit
   else
-    log_info "Copy of cert successful"
+    log "INFO" $func "Copy of cert successful"
   fi
 
   sudo cp ${TMP_DIR}/${key} $path
@@ -225,9 +217,10 @@ function install_vault_tls_keys {
 }
 
 function create_vault_service {
+  local func="create_vault_service"
   local -r service="$1"
 
-  log_info "Creating Vault service"
+  log "INFO" $func "Creating Vault service"
   cat <<EOF > /tmp/outy
 [Unit]]
 Description="HashiCorp Vault - A tool for managing secrets"
@@ -268,6 +261,7 @@ EOF
 }
 
 function install {
+  local func="install"
   if [ -e $TMP_DIR ]
   then
     rm -rf $TMP_DIR
@@ -298,7 +292,7 @@ function install {
         shift
         ;;
       *)
-        log_error "Unrecognized argument: $key"
+        log "ERROR" $func "Unrecognized argument: $key"
         print_usage
         exit 1
         ;;
@@ -312,7 +306,7 @@ function install {
   assert_not_empty "--key" "$k"
   assert_not_empty "--cert" "$c"
 
-  log_info "Starting Vault install"
+  log "INFO" $func "Starting Vault install"
   install_dependencies
   create_vault_user "$DEFAULT_VAULT_USER"
   get_vault_binary "$ib" "$vb" "$TMP_DIR" "$TMP_ZIP"
@@ -320,7 +314,7 @@ function install {
   create_vault_install_paths "$DEFAULT_VAULT_PATH" "$DEFAULT_VAULT_CERTS" "$DEFAULT_VAULT_USER" "$DEFAULT_VAULT_CONFIG" "$k" "$c"
   install_vault_tls_keys "$ib" "$k" "$c" "$DEFAULT_VAULT_CERTS"
   create_vault_service "$DEFAULT_VAULT_SERVICE"
-  log_info "Vault install complete!"
+  log "INFO" $func "Vault install complete!"
   sudo rm -rf $TMP_DIR
 }
 

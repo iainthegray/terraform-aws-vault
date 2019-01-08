@@ -22,6 +22,8 @@ The module has these specifics that are configurable:
 * The number of Consul nodes can be configured though 3 is the default, 5 can be used.
 * The recommended architecture suggests that the 3 Vault nodes be spread across 3 separate availability zones, but this module will take fewer than that.
 * While this module manages the security groups to allow for the correct function of the cluster, it is possible to add further security groups to the instances if other connectivity is desired.
+* The module can be set to install and configure Vault and Consul via userdata or this can be turned off.
+* The module contains packer scripts to build Vault and Consul AMIs as per the deployment guide if required so that you have the option of using userdata, using the module AMI or building your own AMI.
 
 ## Usage
 ```hcl
@@ -33,7 +35,8 @@ module vault_cluster {
   instance_type          = "${var.instance_type}"
   ssh_key_name           = "${var.ssh_key_name}"
   cluster_name           = "${var.cluster_name}"
-  ami_id                 = "${var.ami_id}"
+  vault_ami_id           = "${var.ami_id}"
+  consul_ami_id          = "${var.ami_id}"
   private_subnets        = "${module.vpc.private_subnets}"
   vpc_id                 = "${module.vpc.vpc_id}"
   availability_zones     = "${var.availability_zones}"
@@ -68,16 +71,17 @@ module vault_cluster {
   consul_cluster_size   = 3
 }
 ```
-## Required variables
+## Required Input Variables
 * cluster_name      - name of your cluster
-* ami_id            - The AMI id for the cluster server instances
+* vault_ami_id      - The AMI id for the vault cluster server instances. This can be the same as the consul_ami_id if you are using the userdata install method.
+* consul_ami_id     - The AMI id for the consul cluster server instances
 * instance_type - The AWS instance type you wish for the Vault and Consul servers
 * ssh_key_name      - The AWS key-pair name to use for the instances
 * private_subnets   - a list of the private subnets the cluster will be installed to. This can be from 1 to `var.consul_cluster_size`. This defaults to 3
 * availability_zones - The availability zones that the cluster will be installed in. This should match up with the private_subnets list so that there is at least 1 subnet in each AZ.
 * vpc_id            - The AWS VPC id
 
-## Optional variables
+## Optional Input Variables
 These are listed below with their defined defaults. If you wish to change the variable value then define it in the code block for the module. see the `variables.tf` file for descriptions
 
 * use_asg (false)
@@ -107,6 +111,14 @@ These are listed below with their defined defaults. If you wish to change the va
 * cert_pem (cert.pem)
 * consul_version (1.3.1)
 
+## Output Variables
+* vault_cluster_instance_ids - The instance IDs for the vault instances.
+* vault_cluster_instance_ips - The instance ips for the vault instances.
+* consul_cluster_instance_ids - The instance IDs for the consul instances.
+* consul_cluster_instance_ips - The instance ips for the consul instances.
+* elb_dns - the dns name for the internal ELB
+* cluster_server_role - The role name for the IAM role assigned to the cluster instances for use with attaching policies.
+
 ## Cluster Configuration
 
 If the `use_userdata` variable is set to `true` then the userdata scripts will be used and the userdata install files must be set up prior to deployment. The steps for doing this are below.
@@ -128,12 +140,21 @@ ${var.bucket_name}/install_files/
   - key.pem               # The private key for TLS for vault (var.key_pem)
   - install-consul.sh     # The install script for consul
   - install-vault.sh      # The install script for vault
+  - install_final.sh      # The script used to set up ACL on consul server
   - vault.zip             # The vault binary as this will cater for an enterprise binary already downloaded. (var.vault_bin)
 ```
 This installs the vault and consul servers and agents to a point. The module outputs the consul servers and the vault servers ips as a list and these will need to be used to perform a final setup
 
 ## Packer Install.
-
+The packer directory contains 2 packer configs - one to install the vault nodes and one to install the consul nodes. This will give you 2 AMIs that can be used in the module as:
+```hcl
+vault_ami_id           = "${var.v_ami_id}"
+consul_ami_id          = "${var.c_ami_id}"
+```
+If you pre-build the AMIs via this method then you should also set the use_userdata variable to false so that the vault and consul installs are not overwritten
+```
+use_userdata = false
+```
 
 ## Final Configuration
 If the cluster has been configured either by the userdata or Packer method from this module then there is one final step that is required to complete the configuration as per the deployment guide. This final step cannot (and arguably should not) be completed at the terraform deployment stage and so a helper script is available here: `modules/final/final_config.sh`
