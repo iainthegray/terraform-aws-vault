@@ -181,3 +181,7 @@ Options:
   --vault-ips		 A comma separated string in " no spaces of vault server IPs.
 
 ```
+It is arguable whether this final step should be included in any sort of deployment as this is really the domain of configuration management, however it is included here for completeness to finalise the vault install so that it fully replicates the deployment guide.
+
+## Next Steps
+At this point if all steps are completed there will be a vault cluster backed by a consul storage backend. This vault cluster will need to be initialised and unsealed.

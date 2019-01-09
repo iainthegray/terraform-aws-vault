@@ -148,8 +148,8 @@ function get_vault_binary {
   local -r zip="$4"
 
   log "INFO" $func "Copying vault binary to local"
-  log "INFO" $func "s3://${loc}/Packer/${bin}  ${tmp}/${zip}"
-  aws s3 cp "s3://${loc}/Packer/${bin}" "${tmp}/${zip}"
+  log "INFO" $func "s3://${loc}/install_files/${bin}  ${tmp}/${zip}"
+  aws s3 cp "s3://${loc}/install_files/${bin}" "${tmp}/${zip}"
   ex_c=$?
   log "INFO" $func "s3 copy exit code == $ex_c"
   if [ $ex_c -ne 0 ]
@@ -188,7 +188,7 @@ function install_vault_tls_keys {
   local -r cert="$3"
   local -r path="$4"
   log "INFO" $func "Copying TLS keys binary to local"
-  aws s3 cp "s3://${bucket}/Packer/${key}" "${TMP_DIR}"
+  aws s3 cp "s3://${bucket}/install_files/${key}" "${TMP_DIR}"
   ex_c=$?
   log "INFO" $func "key copy exit code == $ex_c"
   if [ $ex_c -ne 0 ]
@@ -199,7 +199,7 @@ function install_vault_tls_keys {
     log "INFO" $func "Copy of key successful"
   fi
 
-  aws s3 cp "s3://${bucket}/Packer/${cert}" "${TMP_DIR}"
+  aws s3 cp "s3://${bucket}/install_files/${cert}" "${TMP_DIR}"
   ex_c=$?
   log "INFO" $func "cert copy exit code == $ex_c"
   if [ $ex_c -ne 0 ]
