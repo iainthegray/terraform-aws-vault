@@ -235,8 +235,10 @@ data "template_file" "vault_user_data" {
     use_userdata   = "${var.use_userdata}"
     install_bucket = "${var.install_bucket}"
     vault_bin      = "${var.vault_bin}"
+    vault_version  = "${var.vault_version}"
     key_pem        = "${var.key_pem}"
     cert_pem       = "${var.cert_pem}"
+    consul_bin     = "${var.consul_bin}"
     consul_version = "${var.consul_version}"
     cluster_tag    = "${var.cluster_tag}"
     consul_cluster_size   = "${var.consul_cluster_size}"
@@ -249,6 +251,7 @@ data "template_file" "consul_user_data" {
     use_userdata   = "${var.use_userdata}"
     install_bucket = "${var.install_bucket}"
     consul_version = "${var.consul_version}"
+    consul_bin     = "${var.consul_bin}"
     cluster_tag    = "${var.cluster_tag}"
     consul_cluster_size   = "${var.consul_cluster_size}"
   }

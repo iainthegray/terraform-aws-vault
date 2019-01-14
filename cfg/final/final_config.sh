@@ -98,6 +98,12 @@ function update_vault_hcl {
   ret=`ssh -oStrictHostKeyChecking=no $ip "${TMP_DIR}/install_final.sh --update-vault-hcl $vt"`
 }
 
+function strip_acl_comments {
+  local func="strip_acl_comments"
+  local ip="$1"
+  log "INFO" "${func}" "updating consul HCL"
+
+}
 function install {
   local func="install"
   while [[ $# > 0 ]]; do
@@ -136,6 +142,7 @@ function install {
 
 # SSH to first consul server and start it
   local consul_server=`echo $CONSUL_IPS|cut -d',\' -f1`
+  strip_acl_comments "$consul_server"
   consul_cluster_action "start" "$consul_server"
 # SSH to first consul server and bootstrap ACL
   MT=`bootstrap_acl "$consul_server"`

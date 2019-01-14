@@ -27,8 +27,18 @@ function do_install {
   mkdir ins
   aws s3 cp "s3://${install_bucket}/install_files/install-consul.sh" ins
   aws s3 cp "s3://${install_bucket}/install_files/install-vault.sh" ins
-  bash ins/install-consul.sh --install-bucket ${install_bucket} --version ${consul_version} --client 1 --tag "${cluster_tag}" --cluster-size ${consul_cluster_size}
-  bash ins/install-vault.sh --install-bucket ${install_bucket} --vault-bin ${vault_bin} --key ${key_pem} --cert  ${cert_pem}
+  if [[ -z "${consul_version}" ]]
+  then
+    bash ins/install-consul.sh --install-bucket ${install_bucket} --consul-bin ${consul_bin} --client 1 --tag "${cluster_tag}" --cluster-size ${consul_cluster_size}
+  else
+    bash ins/install-consul.sh --install-bucket ${install_bucket} --version ${consul_version} --client 1 --tag "${cluster_tag}" --cluster-size ${consul_cluster_size}
+  fi
+  if [[ -z "${vault_version}" ]]
+  then
+    bash ins/install-vault.sh --install-bucket ${install_bucket} --vault-bin ${vault_bin} --key ${key_pem} --cert  ${cert_pem}
+  else
+    bash ins/install-vault.sh --install-bucket ${install_bucket} --version ${vault_version} --key ${key_pem} --cert  ${cert_pem}
+  fi
 }
 
 echo "USE USERDATA = ${use_userdata}"

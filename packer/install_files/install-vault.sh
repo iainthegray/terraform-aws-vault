@@ -19,7 +19,6 @@ readonly DEFAULT_VAULT_SERVICE="/etc/systemd/system/vault.service"
 readonly DEFAULT_VAULT_CERTS="/etc/vault.d/certs"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TMP_DIR="/tmp/install"
-readonly TMP_ZIP="vault.zip"
 readonly SCRIPT_NAME="$(basename "$0")"
 
 function print_usage {
@@ -29,7 +28,10 @@ function print_usage {
   echo
   echo -e "  --install-bucket\t\tThe S3 location of a folder that contains all the install artifacts. Required"
   echo
+  echo -e " one of the following 2 options:"
   echo -e "  --vault-bin\t\t The name of the vault binary (zip) to install. (must be in the S3 bucket above) Required."
+  echo -e "or..."
+  echo -e "  --version\t\t The vault version required to be downloaded from Hashicorp Releases. Required."
   echo
   echo -e "  --key\t\t The name of the private key file for vault TLS. (must be in the S3 bucket above). Required."
   echo
@@ -142,28 +144,55 @@ EOF
 
 function get_vault_binary {
   local func="get_vault_binary"
-  local -r loc="$1"
-  local -r bin="$2"
-  local -r tmp="$3"
-  local -r zip="$4"
+  local -r bin="$1"
+  local -r zip="$TMP_ZIP"
+  local -r tmp="$TMP_DIR"
+  local -r ver="$v"
 
-  log "INFO" $func "Copying vault binary to local"
-  log "INFO" $func "s3://${loc}/install_files/${bin}  ${tmp}/${zip}"
-  aws s3 cp "s3://${loc}/install_files/${bin}" "${tmp}/${zip}"
-  ex_c=$?
-  log "INFO" $func "s3 copy exit code == $ex_c"
-  if [ $ex_c -ne 0 ]
+  if [[ -z $bin ]]
   then
-    log "ERROR" $func "The copy of the vault binary from ${loc}/${bin} failed"
-    exit
+    assert_not_empty "--version" $v
+    log "INFO" $func "Copying vault version $ver binary to local"
+    cd $tmp
+    curl -O https://releases.hashicorp.com/vault/${ver}/vault_${ver}_linux_386.zip
+    curl -Os https://releases.hashicorp.com/vault/${ver}/vault_${ver}_SHA256SUMS
+    curl -Os https://releases.hashicorp.com/vault/${ver}/vault_${ver}_SHA256SUMS.sig
+    shasum -a 256 -c vault_${ver}_SHA256SUMS 2> /dev/null |grep vault_${ver}_linux_386.zip| grep OK
+    ex_c=$?
+    if [ $ex_c -ne 0 ]
+    then
+      log "ERROR" $func "The copy of the vault binary failed"
+      exit
+    else
+      log "INFO" $func "Copy of vault binary successful"
+    fi
+    unzip -tqq ${TMP_DIR}/${zip}
+    if [ $? -ne 0 ]
+    then
+      log "ERROR" $func "Supplied vault binary is not a zip file"
+      exit
+    fi
   else
-    log "INFO" $func "Copy of vault binary successful"
-  fi
-  unzip -tqq ${tmp}/${zip}
-  if [ $? -ne 0 ]
-  then
-    log "ERROR" $func "Supplied Vault binary is not a zip file"
-    exit
+    assert_not_empty "--vault-bin" "$bin"
+    local -r loc="$ib"
+    log "INFO" $func "Copying vault binary to local $loc"
+    log "INFO" $func "s3://${loc}/install_files/${bin}  ${tmp}/${zip}"
+    aws s3 cp "s3://${loc}/install_files/${bin}" "${tmp}/${zip}"
+    ex_c=$?
+    log "INFO" $func "s3 copy exit code == $ex_c"
+    if [ $ex_c -ne 0 ]
+    then
+      log "ERROR" $func "The copy of the vault binary from ${loc}/${bin} failed"
+      exit
+    else
+      log "INFO" $func "Copy of vault binary successful"
+    fi
+    unzip -tqq ${tmp}/${zip}
+    if [ $? -ne 0 ]
+    then
+      log "ERROR" $func "Supplied Vault binary is not a zip file"
+      exit
+    fi
   fi
 }
 
@@ -281,6 +310,12 @@ function install {
         ;;
       --vault-bin)
         vb="$2"
+        TMP_ZIP="vault.zip"
+        shift
+        ;;
+      --version)
+        v="$2"
+        TMP_ZIP="vault_${v}_linux_386.zip"
         shift
         ;;
       --key)
@@ -302,14 +337,13 @@ function install {
   done
 
   assert_not_empty "--install-bucket" "$ib"
-  assert_not_empty "--vault-bin" "$vb"
   assert_not_empty "--key" "$k"
   assert_not_empty "--cert" "$c"
 
   log "INFO" $func "Starting Vault install"
   install_dependencies
   create_vault_user "$DEFAULT_VAULT_USER"
-  get_vault_binary "$ib" "$vb" "$TMP_DIR" "$TMP_ZIP"
+  get_vault_binary "$vb"
   install_vault "$DEFAULT_INSTALL_PATH" "$TMP_DIR" "$TMP_ZIP"
   create_vault_install_paths "$DEFAULT_VAULT_PATH" "$DEFAULT_VAULT_CERTS" "$DEFAULT_VAULT_USER" "$DEFAULT_VAULT_CONFIG" "$k" "$c"
   install_vault_tls_keys "$ib" "$k" "$c" "$DEFAULT_VAULT_CERTS"

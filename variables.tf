@@ -209,16 +209,28 @@ variable "key_pem" {
   default     = "key.pem"
 }
 
-variable "vault_bin" {
-  description = "The name of the vault binary in zip format in the S3 bucket install_files."
-  type        = "string"
-  default     = "vault.zip"
-}
-
 variable "consul_version" {
   description = "The version of OSS consul to install. Must be in format of consul versioning. e.g. 1.3.1"
   type        = "string"
-  default     = "1.3.1"
+  default     = ""
+}
+
+variable "consul_bin" {
+  description = "The name of the consul binary in zip format in the S3 bucket install_files."
+  type        = "string"
+  default     = ""
+}
+
+variable "vault_bin" {
+  description = "The name of the vault binary in zip format in the S3 bucket install_files."
+  type        = "string"
+  default     = ""
+}
+
+variable "vault_version" {
+  description = "The version of OSS vault to install. Must be in format of vault versioning. e.g. 1.3.1"
+  type        = "string"
+  default     = ""
 }
 
 variable "cluster_tag" {

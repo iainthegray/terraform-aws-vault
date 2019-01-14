@@ -28,7 +28,10 @@ function print_usage {
   echo
   echo -e "  --install-bucket\t\tThe S3 location of a folder that contains all the install artifacts. Required"
   echo
-  echo -e "  --version\t\t The consul version required. Required."
+  echo -e " one of the following 2 options:"
+  echo -e "  --consul-bin\t\t The name of the consul binary (zip) to install. (must be in the S3 bucket above) Required."
+  echo -e "or..."
+  echo -e "  --version\t\t The consul version required to be downloaded from Hashicorp Releases. Required."
   echo
   echo -e "  --client\t\t Should consul be a client. Args 1 or 0. Required"
   echo
@@ -128,10 +131,10 @@ retry_join = ["provider=aws  tag_key=CONSUL_CLUSTER_TAG  tag_value=${tag_val}"]
 performance {
   raft_multiplier = 1
 }
-acl_datacenter =  "dc1"
-acl_default_policy =  "deny"
-acl_down_policy =  "extend-cache"
-acl_agent_token = {{ acl_token }}
+# acl_datacenter =  "dc1"
+# acl_default_policy =  "deny"
+# acl_down_policy =  "extend-cache"
+# acl_agent_token = {{ acl_token }}
 EOF
   if [[ $client -eq 0 ]]
   then
@@ -154,27 +157,56 @@ sudo chown -R "$username:$username" "$opt"
 
 function get_consul_binary {
   local func="get_consul_binary"
-  local -r ver="$1"
+  local -r bin="$1"
+  local -r zip="$TMP_ZIP"
+  local -r ver="$v"
 
-  log "INFO" $func "Copying consul version $ver binary to local"
-  cd $TMP_DIR
-  curl -Os https://releases.hashicorp.com/consul/${ver}/consul_${ver}_linux_386.zip
-  curl -Os https://releases.hashicorp.com/consul/${ver}/consul_${ver}_SHA256SUMS
-  curl -Os https://releases.hashicorp.com/consul/${ver}/consul_${ver}_SHA256SUMS.sig
-  shasum -a 256 -c consul_${ver}_SHA256SUMS 2> /dev/null |grep consul_${ver}_linux_386.zip| grep OK
-  ex_c=$?
-  if [ $ex_c -ne 0 ]
+  if [[ -z $bin ]]
   then
-    log "ERROR" $func "The copy of the consul binary failed"
-    exit
+    assert_not_empty "--version" $v
+    log "INFO" $func "Copying consul version $ver binary to local"
+    cd $TMP_DIR
+    curl -O https://releases.hashicorp.com/consul/${ver}/consul_${ver}_linux_386.zip
+    curl -Os https://releases.hashicorp.com/consul/${ver}/consul_${ver}_SHA256SUMS
+    curl -Os https://releases.hashicorp.com/consul/${ver}/consul_${ver}_SHA256SUMS.sig
+    shasum -a 256 -c consul_${ver}_SHA256SUMS 2> /dev/null |grep consul_${ver}_linux_386.zip| grep OK
+    ex_c=$?
+    if [ $ex_c -ne 0 ]
+    then
+      log "ERROR" $func "The copy of the consul binary failed"
+      exit
+    else
+      log "INFO" $func "Copy of consul binary successful"
+    fi
+    unzip -tqq ${TMP_DIR}/${zip}
+    if [ $? -ne 0 ]
+    then
+      log "ERROR" $func "Supplied consul binary is not a zip file"
+      exit
+    fi
   else
-    log "INFO" $func "Copy of consul binary successful"
-  fi
-  echo "consul_${ver}_linux_386.zip"
-  if [ $? -ne 0 ]
-  then
-    log "ERROR" $func "Supplied consul binary is not a zip file"
-    exit
+    assert_not_empty "--consul-bin" "$bin"
+    local -r loc="$ib"
+    local -r tmp="$TMP_DIR"
+
+    log "INFO" $func "Copying consul binary to local"
+    log "INFO" $func "s3://${loc}/install_files/${bin}  ${tmp}/${zip}"
+    aws s3 cp "s3://${loc}/install_files/${bin}" "${tmp}/${zip}"
+    ex_c=$?
+    log "INFO" $func "s3 copy exit code == $ex_c"
+    if [ $ex_c -ne 0 ]
+    then
+      log "ERROR" $func "The copy of the consul binary from ${loc}/${bin} failed"
+      exit
+    else
+      log "INFO" $func "Copy of consul binary successful"
+    fi
+    unzip -tqq ${tmp}/${zip}
+    if [ $? -ne 0 ]
+    then
+      log "ERROR" $func "Supplied Consul binary is not a zip file"
+      exit
+    fi
   fi
 }
 
@@ -182,10 +214,10 @@ function install_consul {
   local func="install_consul"
   local -r loc="$1"
   local -r tmp="$2"
-  local -r ver="$3"
+  local -r zip="$3"
 
   log "INFO" $func "Installing Consul"
-  cd ${tmp} && unzip -q consul_${ver}_linux_386.zip
+  cd ${tmp} && unzip -q ${zip}
   sudo chown root:root consul
   sudo cp consul $loc
 }
@@ -239,6 +271,12 @@ function install {
         ;;
       --version)
         v="$2"
+        TMP_ZIP="consul_${v}_linux_386.zip"
+        shift
+        ;;
+      --consul-bin)
+        cb="$2"
+        TMP_ZIP="consul.zip"
         shift
         ;;
       --client)
@@ -264,7 +302,6 @@ function install {
   done
 
   assert_not_empty "--install-bucket" "$ib"
-  assert_not_empty "--version" "$v"
   assert_not_empty "--tag" "$tag"
   assert_not_empty "--cluster-size" "$siz"
   assert_not_empty "--client" "$c"
@@ -272,8 +309,8 @@ function install {
   log "INFO" $func "Starting Consul install"
   install_dependencies
   create_consul_user "$DEFAULT_CONSUL_USER"
-  get_consul_binary "$v"
-  install_consul "$DEFAULT_INSTALL_PATH" "$TMP_DIR" "$v"
+  get_consul_binary "$cb"
+  install_consul "$DEFAULT_INSTALL_PATH" "$TMP_DIR" "$TMP_ZIP"
   create_consul_install_paths "$DEFAULT_CONSUL_PATH" "$DEFAULT_CONSUL_USER" "$DEFAULT_CONSUL_CONFIG" "$DEFAULT_CONSUL_OPT" "$c" "$tag" "$siz"
   create_consul_service "$DEFAULT_CONSUL_SERVICE"
   log "INFO" $func "Consul install complete!"
