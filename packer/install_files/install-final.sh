@@ -2,7 +2,7 @@
 # This script is used to do the final config of vault and consul as per the
 # deployment guide: https://www.vaultproject.io/guides/operations/deployment-guide.html
 
-local -r TMP_DIR="/tmp/ins"
+TMP_DIR="/tmp/ins"
 
 function log {
   local -r level="$1"
@@ -28,7 +28,7 @@ function set_agent {
 function update_consul {
   local func="update_consul"
   local at="$1"
-  sudo sed -i'' "s/{{ acl_token }}/$at/" /etc/consul.d/consul.hcl
+  sudo sed -i'' "s/# acl_agent_token = {{ acl_token }}/acl_agent_token = \"$at\"/" /etc/consul.d/consul.hcl
 }
 
 function update_vault {
@@ -42,6 +42,11 @@ function set_vault {
   local mt="$1"
   VT=`curl --request PUT  --header "X-Consul-Token: ${mt}" --data '{"Name": "Vault Token", "Type": "client", "Rules": "node \"\" { policy = \"write\" } service \"vault\" { policy = \"write\" } agent \"\" { policy = \"write\" }  key \"vault\" { policy = \"write\" } session \"\" { policy = \"write\" } "}' http://127.0.0.1:8500/v1/acl/create | cut -d'"' -f4`
   echo $VT
+}
+
+function strip_acl_comments {
+  local func="strip_acl_comments"
+  sudo sed -i'' "s/# acl_d/acl_d/g" /etc/consul.d/consul.hcl
 }
 
 function install {
@@ -74,9 +79,12 @@ function install {
         update_vault $at
         exit
         ;;
+      --strip-acl-comment)
+        strip_acl_comments
+        exit
+        ;;
       *)
         log "ERROR" $func "Unrecognized argument: $key"
-        print_usage
         exit 1
         ;;
     esac

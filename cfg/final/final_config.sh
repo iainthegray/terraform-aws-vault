@@ -38,7 +38,7 @@ function assert_not_empty {
 }
 
 function consul_action {
-  local func="consul_cluster_action"
+  local func="consul_action"
   local -r action="$1"
   local -r ip="$2"
   local -r token="$3"
@@ -47,16 +47,10 @@ function consul_action {
     "start")
       log "INFO" "${func}" "Starting consul server on $ip"
       ssh -oStrictHostKeyChecking=no $ip sudo systemctl start consul
-      sleep 3
-      alive=`ssh $ip CONSUL_HTTP_TOKEN="$token" consul members -status=alive | grep -v "^Node" | wc -l`
-      log "INFO" "${func}" "$alive consul members"
       ;;
     "stop")
       log "INFO" "${func}" "Stopping consul server on $ip"
       ssh -oStrictHostKeyChecking=no $ip sudo systemctl stop consul
-      sleep 3
-      alive=`ssh $ip CONSUL_HTTP_TOKEN="$token" consul members -status=alive | grep -v "^Node" | wc -l`
-      log "INFO" "${func}" "$alive consul members"
       ;;
     *)
       log "ERROR" $func "Unrecognized argument: $action"
@@ -68,8 +62,8 @@ function consul_action {
 function bootstrap_acl {
   local func="bootstrap_acl"
   local cip="$1"
-  log "INFO" "${func}" "Bootstrapping ACLs"
-  ret=`ssh -oStrictHostKeyChecking=no $cip "${TMP_DIR}/install_final.sh --bs-acl"`
+  log "INFO" "${func}" "Bootstrapping ACLs on host $cip"
+  ret=`ssh -oStrictHostKeyChecking=no $cip "bash ${TMP_DIR}/install-final.sh --bs-acl"`
   echo $ret | cut -d'"' -f4
 }
 
@@ -78,7 +72,16 @@ function set_agent_token {
   local cip="$1"
   local MT="$2"
   log "INFO" "${func}" "Setting Agent Token ACLs"
-  ret=`ssh -oStrictHostKeyChecking=no $cip "${TMP_DIR}/install_final.sh --set_agent $MT"`
+  ret=`ssh -oStrictHostKeyChecking=no $cip " bash ${TMP_DIR}/install-final.sh --set-agent $MT"`
+  echo $ret | cut -d'"' -f4
+}
+
+function set_vault_token {
+  local func="set_vault_token"
+  local cip="$1"
+  local MT="$2"
+  log "INFO" "${func}" "Setting Vault ACL Token"
+  ret=`ssh -oStrictHostKeyChecking=no $cip " bash ${TMP_DIR}/install-final.sh --set-vault $MT"`
   echo $ret | cut -d'"' -f4
 }
 
@@ -86,23 +89,31 @@ function update_consul_hcl {
   local func="update_consul_hcl"
   local ip="$1"
   local at="$2"
-  log "INFO" "${func}" "updating consul HCL"
-  ret=`ssh -oStrictHostKeyChecking=no $ip "${TMP_DIR}/install_final.sh --update-consul-hcl $at"`
+  log "INFO" "${func}" "updating consul HCL with Agent Token $at"
+  ret=`ssh -oStrictHostKeyChecking=no $ip "bash ${TMP_DIR}/install-final.sh --update-consul-hcl $at"`
 }
 
 function update_vault_hcl {
   local func="update_vault_hcl"
   local ip="$1"
   local vt="$2"
-  log "INFO" "${func}" "updating consul HCL"
-  ret=`ssh -oStrictHostKeyChecking=no $ip "${TMP_DIR}/install_final.sh --update-vault-hcl $vt"`
+  log "INFO" "${func}" "updating vault HCL"
+  ret=`ssh -oStrictHostKeyChecking=no $ip "bash ${TMP_DIR}/install-final.sh --update-vault-hcl $vt"`
 }
 
 function strip_acl_comments {
   local func="strip_acl_comments"
   local ip="$1"
-  log "INFO" "${func}" "updating consul HCL"
+  log "INFO" "${func}" "Allowing ACL to run on $ip"
+  ret=`ssh -oStrictHostKeyChecking=no $ip "bash ${TMP_DIR}/install-final.sh --strip-acl-comment"`
+}
 
+function check_consul_up {
+  local func="update_vault_hcl"
+  local ip="$1"
+  local MT="$2"
+  ret=`ssh -oStrictHostKeyChecking=no $ip CONSUL_HTTP_TOKEN="$MT" consul members -status=alive | grep -v "^Node" | wc -l`
+  echo $ret
 }
 function install {
   local func="install"
@@ -139,19 +150,33 @@ function install {
   MT=''
   AT=''
   VT=''
-
-# SSH to first consul server and start it
-  local consul_server=`echo $CONSUL_IPS|cut -d',\' -f1`
-  strip_acl_comments "$consul_server"
-  consul_cluster_action "start" "$consul_server"
+  log "INFO" $func "Installing to these consul servers $CONSUL_IPS"
+  log "INFO" $func "Installing to these vault servers $VAULT_IPS"
+  # remove the commenting from the ACL lines in consul
+  for ip in `echo $CONSUL_IPS $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
+  do
+    strip_acl_comments "$ip"
+  done
+  # SSH to first consul server and start it
+  for ip in `echo $CONSUL_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
+  do
+    consul_action start $ip
+  done
 # SSH to first consul server and bootstrap ACL
+  log "INFO" "MAIN" "sleeping 5"
+  sleep 5
+  log "INFO" "MAIN" "sleeping 10"
+  sleep 5
+  consul_server=`echo $CONSUL_IPS | awk -F, '{print $1}'`
   MT=`bootstrap_acl "$consul_server"`
   log "INFO" $func "Management token for consul = $MT"
+  alive=`check_consul_up $consul_server $MT`
+  log "INFO" $func "Consul servers alive = $alive"
 # SSH to first consul server and set agent Token
   AT=`set_agent_token "$consul_server" $MT`
   log "INFO" $func "Agent token for consul = $AT"
 # SSH to all consul servers and agents and set agent Token
-  for ip in `echo $CONSUL_IPS $VAULT_IPS | awk -F, ' for (i=1; i<=NF; i++) print $i}'`
+  for ip in `echo $CONSUL_IPS $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
   do
     update_consul_hcl "$ip" "$AT"
   done
@@ -159,12 +184,15 @@ function install {
   VT=`set_vault_token $consul_server $MT`
   log "INFO" $func "Vault token for consul = $VT"
 # SSH to all vault servers and set vault Token
-  for ip in `echo $VAULT_IPS | awk -F, ' for (i=1; i<=NF; i++) print $i}'`
+  for ip in `echo $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
   do
     update_vault_hcl "$ip" "$VT"
   done
 # SSH to first consul server and stop it
-  consul_cluster_action "stop" "$consul_server"
+  for ip in `echo $CONSUL_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
+  do
+    consul_action "stop" "$ip"
+  done
 
 }
 

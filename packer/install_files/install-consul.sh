@@ -131,6 +131,7 @@ retry_join = ["provider=aws  tag_key=CONSUL_CLUSTER_TAG  tag_value=${tag_val}"]
 performance {
   raft_multiplier = 1
 }
+
 # acl_datacenter =  "dc1"
 # acl_default_policy =  "deny"
 # acl_down_policy =  "extend-cache"

@@ -251,7 +251,7 @@ function create_vault_service {
 
   log "INFO" $func "Creating Vault service"
   cat <<EOF > /tmp/outy
-[Unit]]
+[Unit]
 Description="HashiCorp Vault - A tool for managing secrets"
 Documentation=https://www.vaultproject.io/docs/
 Requires=network-online.target
