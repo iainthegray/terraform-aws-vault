@@ -24,6 +24,7 @@ The module has these specifics that are configurable:
 * While this module manages the security groups to allow for the correct function of the cluster, it is possible to add further security groups to the instances if other connectivity is desired.
 * The module can be set to install and configure Vault and Consul via userdata or this can be turned off.
 * The module contains packer scripts to build Vault and Consul AMIs as per the deployment guide if required so that you have the option of using userdata, using the module AMI or building your own AMI.
+* The vault cluster can be set up to use AWS KMS key for auto unseal (something that is recommended if using an ASG)
 
 ## Usage
 ```hcl
@@ -59,6 +60,7 @@ These are listed below with their defined defaults. If you wish to change the va
 * use_asg (false)
 * use_elb (false)
 * use_userdata (false)
+* use_auto_unseal (false)
 * vault_cluster_size (3)
 * consul_cluster_size (5)
 * health_check_grace_period (300)
@@ -110,7 +112,14 @@ The default is false
 
   use_elb           = false
 ```
+## Use of awskms autounseal
+This module will configure and deploy a AWS KMS key and set the cluster to use this for auto unsealing. This behaviour is controlled by the use of a boolean variable `use_auto_unseal` The default is false
+```hcl
+/* This variable controls the creation of a KMS key for use with awskms
+seal operations */
 
+use_auto_unseal   = false
+```
 ## Userdata Install
 
 If the `use_userdata` variable is set to `false` then no post install userdata configuration will take place and it is assumed that the cluster config will be done via some other method. This module also provides Packer scripts to perform this. See below *Packer Install*
@@ -209,9 +218,15 @@ copy this script to a suitable host that has ssh access to all your vault and co
 Usage: final_config.sh [OPTIONS]
 Options:
 
-  --consul-ips		 A comma separated string in " no spaces of consul server IPs.
+  --consul-ips  A comma separated string in " no spaces of consul server IPs.
+                    Required
 
-  --vault-ips		 A comma separated string in " no spaces of vault server IPs.
+  --vault-ips   A comma separated string in " no spaces of vault server IPs.
+                    Required
+
+  --kms-key     The key id for the kms key if this has been set to be used
+
+  --kms-region  The region that the kms key was created in.     
 ```
 It is arguable whether this final step should be included in any sort of deployment as this is really the domain of configuration management, however it is included here for completeness to finalise the vault install so that it fully replicates the deployment guide.
 
