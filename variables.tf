@@ -49,7 +49,6 @@ variable "ssh_key_name" {
   type        = "string"
 }
 
-
 variable "private_subnets" {
   description = "A list private subnets the vault cluster will be deployed into"
   type        = "list"
@@ -238,10 +237,11 @@ variable "cluster_tag" {
   type        = "string"
   default     = "My_consul_cluster"
 }
+
 /* Aditional security group ids to add to the vault and consul cluster */
 
 variable "additional_sg_ids" {
   description = "A list of security groups to attach to instances in the vault cluster beyond the standard vault ones"
   type        = "list"
-  default = []
+  default     = []
 }

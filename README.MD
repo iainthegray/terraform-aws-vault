@@ -8,6 +8,11 @@ This module includes:
 * A packer directory containing the packer code to build Vault and Consul AMIs
 * The module can be used with the Packer built AMIs or userdata to configure up to the standard listed in the [Deployment Guide](https://www.vaultproject.io/guides/operations/deployment-guide.html).
 
+## Versions
+This module has been tested with Ubuntu 18.04 and Centos 7.x OS
+This has been tested with Vault 1.x
+This has been tested with Consul 1.3.x. The configuration and userdata setup will not work for consul 1.4.x currently
+
 ## Setup
 This module is specifically designed to deliver the [Reference Architecture](https://learn.hashicorp.com/vault/operations/ops-reference-architecture) and as such adheres to that pattern. This means that it has these specifics that are not configurable:
 * A Vault cluster using TLS

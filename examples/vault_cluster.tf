@@ -24,13 +24,15 @@ module vault_cluster {
   # Userdata stuff
   use_userdata   = true
   install_bucket = "${var.my_bucket}"
+
   # vault_bin      = "vault.zip"
-  vault_version  = "1.0.1"
-  key_pem        = "key.pem"
-  cert_pem       = "cert.pem"
+  vault_version = "1.0.1"
+  key_pem       = "key.pem"
+  cert_pem      = "cert.pem"
+
   # consul_version = "1.3.1"
-  consul_bin     = "consul_1.3.1_linux_386.zip"
-  consul_cluster_size   = "${var.consul_cluster_size}"
+  consul_bin          = "consul_1.3.1_linux_386.zip"
+  consul_cluster_size = "${var.consul_cluster_size}"
 }
 
 /*--------------------------------------------------------------
@@ -80,11 +82,11 @@ resource "aws_security_group_rule" "vault_cluster_allow_ingress_8600" {
  This can be created by the terraform or you can assign an already created one
 --------------------------------------------------------------*/
 module private_s3 {
-  source = "../terraform-aws-vault/modules/private-s3"
-  global_region = "${var.global_region}"
-  create_bucket = "${var.create_bucket}"
-  create_user_access = "${var.create_user_access}"
-  my_user = "${var.my_user}"
-  bucket_name = "${var.my_bucket}"
+  source              = "../terraform-aws-vault/modules/private-s3"
+  global_region       = "${var.global_region}"
+  create_bucket       = "${var.create_bucket}"
+  create_user_access  = "${var.create_user_access}"
+  my_user             = "${var.my_user}"
+  bucket_name         = "${var.my_bucket}"
   cluster_server_role = "${module.vault_cluster.cluster_server_role}"
 }
