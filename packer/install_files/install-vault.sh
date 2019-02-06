@@ -134,6 +134,12 @@ storage "consul" {
 
 ui = true
 api_addr = "https://127.0.0.1:8200"
+
+#seal "awskms" {
+#  kms_key_id = "{{ kms_key }}"
+#  region = "{{ aws_region }}"
+#}
+
 EOF
 
   sudo cp ${TMP_DIR}/outy ${path}$config

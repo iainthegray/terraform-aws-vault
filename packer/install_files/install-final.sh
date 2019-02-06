@@ -37,6 +37,15 @@ function update_vault {
   sudo sed -i'' "s/{{ vault_token }}/$at/" /etc/vault.d/vault.hcl
 }
 
+function add_auto_unseal {
+  local func="add_auto_unseal"
+  local k="$1"
+  local r="$2"
+  sudo sed -i'' "s/#//g" /etc/vault.d/vault.hcl
+  sudo sed -i'' "s/{{ kms_key }}/$k/" /etc/vault.d/vault.hcl
+  sudo sed -i'' "s/{{ aws_region }}/$r/" /etc/vault.d/vault.hcl
+}
+
 function set_vault {
   local func="set_vault"
   local mt="$1"
@@ -77,6 +86,12 @@ function install {
       --update-vault-hcl)
         at="$2"
         update_vault $at
+        exit
+        ;;
+      --add-auto-unseal)
+        k="$2"
+        r="$3"
+        add_auto_unseal $k $r
         exit
         ;;
       --strip-acl-comment)

@@ -13,6 +13,10 @@ function print_usage {
   echo
   echo -e "  --vault-ips\t\t A comma separated string in \" no spaces of vault server IPs. Required"
   echo
+  echo -e "  --kms-key\t\t The id of the kms key if you are using auto-unseal"
+  echo
+  echo -e "  --kms-region\t\t The region of the kms key if you are using auto-unseal"
+  echo
   echo "This script can be used to install Consul as a backend to Vault. It has been tested with Ubuntu 18.04 and Centos 7."
   echo
 }
@@ -101,6 +105,15 @@ function update_vault_hcl {
   ret=`ssh -oStrictHostKeyChecking=no $ip "bash ${TMP_DIR}/install-final.sh --update-vault-hcl $vt"`
 }
 
+function add_auto_unseal {
+  local func="add_auto_unseal"
+  local ip="$1"
+  local key="$2"
+  local reg="$3"
+  log "INFO" "${func}" "updating vault HCL"
+  ret=`ssh -oStrictHostKeyChecking=no $ip "bash ${TMP_DIR}/install-final.sh --add-auto-unseal $key $reg"`
+}
+
 function strip_acl_comments {
   local func="strip_acl_comments"
   local ip="$1"
@@ -131,6 +144,14 @@ function install {
         ;;
       --vault-ips)
         VAULT_IPS="$2"
+        shift
+        ;;
+      --kms-key)
+        KEY_ID="$2"
+        shift
+        ;;
+      --kms-region)
+        KEY_REGION="$2"
         shift
         ;;
       *)
@@ -193,7 +214,14 @@ function install {
   do
     consul_action "stop" "$ip"
   done
-
+  log "INFO" $func "KMS_KEY = $KEY_ID KMS_REG = $KEY_REGION"
+  if [ -n "$KEY_ID" -a -n $KEY_REGION ]
+  then
+    for ip in `echo $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
+    do
+      add_auto_unseal "$ip" "$KEY_ID" "$KEY_REGION"
+    done
+  fi
 }
 
 install "$@"

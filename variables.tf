@@ -20,6 +20,12 @@ variable "use_userdata" {
   default     = false
 }
 
+variable "use_auto_unseal" {
+  description = "a variable set to true or false depending on whether the vault cluster will be configured to use aws kms key to auto-unseal"
+  type        = "string"
+  default     = false
+}
+
 /*------------------------------------------------
 Vault Cluster Variables
 Variables that define the cluster instances
@@ -61,6 +67,11 @@ variable "availability_zones" {
 
 variable "vpc_id" {
   description = "The ID of the VPC this will be provisioned in"
+  type        = "string"
+}
+
+variable "aws_region" {
+  description = "The region the vault cluster will be deployed in"
   type        = "string"
 }
 
@@ -146,6 +157,21 @@ variable "vault_api_port" {
   default     = 8200
 }
 
+
+/*------------------------------------------------
+Variables for KMS key for auto unseal
+------------------------------------------------*/
+variable "kms_deletion_days" {
+  description = "Duration in days after which the key is deleted after destruction of the resource, must be between 7 and 30 days."
+  type        = "string"
+  default     = 10
+}
+
+variable "kms_key_rotate" {
+  description = "Specifies whether key rotation is enabled"
+  type        = "string"
+  default     = false
+}
 /*------------------------------------------------
 Variables for ELB Health Checking.
  This is used for traffic direction, not for ASG
