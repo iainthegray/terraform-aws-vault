@@ -87,6 +87,16 @@ resource "aws_autoscaling_group" "vault_asg" {
   }
 }
 
+resource "aws_kms_key" "vault" {
+  count                   = "${(var.use_auto_unseal ? 1 : 0)}"
+  description             = "Vault unseal key"
+  deletion_window_in_days = "${var.kms_deletion_days}"
+  enable_key_rotation     = "${var.kms_key_rotate}"
+  tags {
+    Name = "vault-kms-unseal-${var.cluster_name}"
+  }
+}
+
 /*------------------------------------------------------------------------------
 This is the configuration for the ELB. This is defined only if the variable
 var.use_elb = true
@@ -227,22 +237,43 @@ data "template_file" "s3_iam_policy" {
     s3-bucket-name = "${var.install_bucket}"
   }
 }
+/*--------------------------------------------------------------
+KMS IAM Role and Policy to allow access to the KMS key from vault servers to
+utilise auto-unseal
+--------------------------------------------------------------*/
+data "template_file" "vault_kms_unseal" {
+  count  = "${(var.use_auto_unseal ? 1 : 0)}"
+  template = "${file("${path.module}/provisioning/templates/kms-access-role.json.tpl")}"
 
-/* This is the set up of the userdata template file for the install */
+  vars {
+    kms_arn = "${aws_kms_key.vault.arn}"
+  }
+}
+resource "aws_iam_role_policy" "kms-access" {
+  count  = "${(var.use_auto_unseal ? 1 : 0)}"
+  name   = "kms-access-${var.cluster_name}"
+  role   = "${aws_iam_role.cluster_server.id}"
+  policy = "${data.template_file.vault_kms_unseal.rendered}"
+}
+
+/*--------------------------------------------------------------
+This is the set up of the userdata template file for the install
+--------------------------------------------------------------*/
 data "template_file" "vault_user_data" {
   template = "${file("${path.module}/provisioning/templates/vault_ud.tpl")}"
 
   vars {
-    use_userdata        = "${var.use_userdata}"
-    install_bucket      = "${var.install_bucket}"
-    vault_bin           = "${var.vault_bin}"
-    vault_version       = "${var.vault_version}"
-    key_pem             = "${var.key_pem}"
-    cert_pem            = "${var.cert_pem}"
-    consul_bin          = "${var.consul_bin}"
-    consul_version      = "${var.consul_version}"
-    cluster_tag         = "${var.cluster_tag}"
-    consul_cluster_size = "${var.consul_cluster_size}"
+    use_userdata      = "${var.use_userdata}"
+    install_bucket    = "${var.install_bucket}"
+    vault_bin         = "${var.vault_bin}"
+    vault_version     = "${var.vault_version}"
+    key_pem           = "${var.key_pem}"
+    cert_pem          = "${var.cert_pem}"
+    consul_bin        = "${var.consul_bin}"
+    consul_version    = "${var.consul_version}"
+    cluster_tag       = "${var.cluster_tag}"
+    consul_cluster_size   = "${var.consul_cluster_size}"
+    aws_region        = "${var.aws_region}"
   }
 }
 
@@ -250,11 +281,11 @@ data "template_file" "consul_user_data" {
   template = "${file("${path.module}/provisioning/templates/consul_ud.tpl")}"
 
   vars {
-    use_userdata        = "${var.use_userdata}"
-    install_bucket      = "${var.install_bucket}"
-    consul_version      = "${var.consul_version}"
-    consul_bin          = "${var.consul_bin}"
-    cluster_tag         = "${var.cluster_tag}"
-    consul_cluster_size = "${var.consul_cluster_size}"
+    use_userdata   = "${var.use_userdata}"
+    install_bucket = "${var.install_bucket}"
+    consul_version = "${var.consul_version}"
+    consul_bin     = "${var.consul_bin}"
+    cluster_tag    = "${var.cluster_tag}"
+    consul_cluster_size   = "${var.consul_cluster_size}"
   }
 }
