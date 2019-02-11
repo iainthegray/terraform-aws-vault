@@ -157,7 +157,6 @@ variable "vault_api_port" {
   default     = 8200
 }
 
-
 /*------------------------------------------------
 Variables for KMS key for auto unseal
 ------------------------------------------------*/
@@ -172,6 +171,7 @@ variable "kms_key_rotate" {
   type        = "string"
   default     = false
 }
+
 /*------------------------------------------------
 Variables for ELB Health Checking.
  This is used for traffic direction, not for ASG
