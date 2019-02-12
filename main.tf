@@ -172,6 +172,16 @@ resource "aws_security_group_rule" "vault_cluster_allow_self_8200_tcp" {
   security_group_id = "${aws_security_group.vault_cluster_int.id}"
 }
 
+resource "aws_security_group_rule" "vault_cluster_allow_self_8201_tcp" {
+  type              = "ingress"
+  from_port         = 8201
+  to_port           = 8201
+  protocol          = "tcp"
+  self              = true
+  description       = "Vault listen port between servers"
+  security_group_id = "${aws_security_group.vault_cluster_int.id}"
+}
+
 resource "aws_security_group_rule" "vault_cluster_allow_self_8500_tcp" {
   type              = "ingress"
   from_port         = 8500
