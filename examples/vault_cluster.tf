@@ -85,7 +85,7 @@ resource "aws_security_group_rule" "vault_cluster_allow_ingress_8600" {
  use -target to create the bucket first
 --------------------------------------------------------------*/
 module private_s3 {
-  source = "../terraform-aws-vault/modules/private-s3"
+  source      = "../terraform-aws-vault/modules/private-s3"
   bucket_name = "${var.my_bucket}"
 }
 

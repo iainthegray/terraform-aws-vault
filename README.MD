@@ -156,7 +156,7 @@ This behaviour is controlled by the use of the [vault|consul] version and bin va
   # This will mean the install will download the release from releases page
   consul_version = "1.3.1"
 ```
-You should use either the *bin* or the *version* for each application. If you put in both, the install will only look in the S3 bucket.
+You should use either the *bin* or the *version* for each application. If you put in both, the install  will only look in the S3 bucket.
 You can have the behaviour different for each application if you wish.
 
 This module installs the vault and consul servers as per the [Deployment Guide](https://www.vaultproject.io/guides/operations/deployment-guide.html). This includes full configuration of the servers. Because of this there are a few prerequisites that must be followed.
