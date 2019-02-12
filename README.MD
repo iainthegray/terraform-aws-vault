@@ -162,15 +162,33 @@ You can have the behaviour different for each application if you wish.
 This module installs the vault and consul servers as per the [Deployment Guide](https://www.vaultproject.io/guides/operations/deployment-guide.html). This includes full configuration of the servers. Because of this there are a few prerequisites that must be followed.
 
 The steps for the configuration of the servers is as follows:
-* Use the private_s3 sub-module to create a private S3 bucket.
-* Pass the name of this bucket to the vault-cluster module instance so that it can create a policy allowing the instances access to the bucket. (var.bucket_name)
+* Create a private S3 bucket first
+* Copy the provisioning/templates/s3-access-role.json.tpl from the
+vault module to a local space and reference it in this code block.
+This will create a policy allowing the instances access to the bucket.
+
+```
+resource "aws_iam_role_policy" "s3-access" {
+  name   = "s3-access-policy"
+  role   = "${module.vault_cluster.cluster_server_role}"
+  policy = "${data.template_file.s3_iam_policy.rendered}"
+}
+
+data "template_file" "s3_iam_policy" {
+  template = "${file("s3-access-role.json.tpl")}"
+
+  vars {
+    s3-bucket-name = "${var.my_bucket}"
+  }
+}
+```
 * Copy the install_files directory from the module to the install_files bucket.
 `module_path/packer/install_files`
 * Copy your certificate and private key for Vault TLS to the install_files bucket.
 * Copy the enterprise vault binary to the install_files bucket
 * The final S3 bucket will look like this:
 ```
-${var.bucket_name}/install_files/
+${var.my_bucket}/install_files/
   - cert.pem              # The certificate for TLS for vault (var.cert_pem)
   - key.pem               # The private key for TLS for vault (var.key_pem)
   - install-consul.sh     # The install script for consul
