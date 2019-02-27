@@ -215,7 +215,7 @@ function install {
     consul_action "stop" "$ip"
   done
   log "INFO" $func "KMS_KEY = $KEY_ID KMS_REG = $KEY_REGION"
-  if [ -n "$KEY_ID" -a -n $KEY_REGION ]
+  if [ -n "$KEY_ID" -a -n "$KEY_REGION" ]
   then
     for ip in `echo $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
     do
