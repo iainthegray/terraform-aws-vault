@@ -14,8 +14,20 @@ variable "use_elb" {
   default     = false
 }
 
+variable "use_nlb" {
+  description = "a variable set to true or false depending on whether the vault cluster will use an NLB or not"
+  type        = "string"
+  default     = false
+}
+
 variable "use_userdata" {
   description = "a variable set to true or false depending on whether the vault cluster will be configured using the userdata scripts or not"
+  type        = "string"
+  default     = false
+}
+
+variable "internal_elb" {
+  description = "a variable set to true or false depending on whether the elb should be internal or not"
   type        = "string"
   default     = false
 }
@@ -59,7 +71,10 @@ variable "private_subnets" {
   description = "A list private subnets the vault cluster will be deployed into"
   type        = "list"
 }
-
+variable "public_subnets" {
+  description = "A list public subnets used if the nlb is deployed into a public network"
+  type        = "list"
+}
 variable "availability_zones" {
   description = "A list AZs the vault cluster will be deployed into"
   type        = "list"
@@ -89,7 +104,7 @@ variable "vault_cluster_size" {
 variable "consul_cluster_size" {
   description = "The size (number of instances) in the consul cluster"
   type        = "string"
-  default     = 3
+  default     = 5
 }
 
 /*------------------------------------------------
@@ -163,7 +178,7 @@ Variables for KMS key for auto unseal
 variable "kms_deletion_days" {
   description = "Duration in days after which the key is deleted after destruction of the resource, must be between 7 and 30 days."
   type        = "string"
-  default     = 10
+  default     = 7
 }
 
 variable "kms_key_rotate" {

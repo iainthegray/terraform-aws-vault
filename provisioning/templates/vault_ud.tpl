@@ -21,6 +21,7 @@ function do_install {
   if $(has_apt_get); then
     log "INFO" "$func" "This is a debian based install - using apt"
     sudo apt-get update -y
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
     sudo apt-get install -y awscli curl unzip jq
   elif $(has_yum); then
     log "INFO" "$func" "This is a redhat based install - using yum"
@@ -53,10 +54,10 @@ function do_install {
   if [[ -z "${vault_version}" ]]
   then
     log "INFO" "$func" "Doing a binary install from S3 for vault"
-    bash ins/install-vault.sh --install-bucket ${install_bucket} --vault-bin ${vault_bin} --key ${key_pem} --cert  ${cert_pem}
+    bash ins/install-vault.sh --install-bucket ${install_bucket} --vault-bin ${vault_bin} --key ${key_pem} --cert ${cert_pem} --api_addr ${api_addr}
   else
     log "INFO" "$func" "Doing a download install from releases for vault"
-    bash ins/install-vault.sh --install-bucket ${install_bucket} --version ${vault_version} --key ${key_pem} --cert  ${cert_pem}
+    bash ins/install-vault.sh --install-bucket ${install_bucket} --version ${vault_version} --key ${key_pem} --cert ${cert_pem} --api_addr ${api_addr}
   fi
 }
 

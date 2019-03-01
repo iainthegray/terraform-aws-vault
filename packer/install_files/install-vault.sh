@@ -37,6 +37,8 @@ function print_usage {
   echo
   echo -e "  --cert\t\t The name of the cert file for vault TLS. (must be in the S3 bucket above). Required."
   echo
+  echo -e "  --api_addr\t\t The api_addr to use. This will be either the host or the URL of the loadbalancer. Required."
+  echo
   echo "This script can be used to install Vault and its dependencies. This script has been tested with Ubuntu 18.04 and Centos 7."
   echo
 }
@@ -113,11 +115,19 @@ function create_vault_install_paths {
   local -r config="$4"
   local -r key="$5"
   local -r cert="$6"
+  local -r a_ad="$7"
 
   log "INFO" $func "Creating install dirs for Vault at $path"
   sudo mkdir -p "$path"
   sudo mkdir -p "$c_path"
   # VT=`cat /etc/consul.d/vt.txt`
+  if [ "X${a_ad}" == "Xhost" ]
+  then
+    api_add=`hostname -I | sed 's/ //'`
+  else
+    api_add="${a_ad}"
+  fi
+
   sudo cat << EOF > ${TMP_DIR}/outy
 
 listener "tcp" {
@@ -133,7 +143,9 @@ storage "consul" {
 }
 
 ui = true
-api_addr = "https://127.0.0.1:8200"
+
+api_addr = "https://${api_add}:8200"
+
 
 #seal "awskms" {
 #  kms_key_id = "{{ kms_key }}"
@@ -332,6 +344,10 @@ function install {
         c="$2"
         shift
         ;;
+      --api_addr)
+        a_ad="$2"
+        shift
+        ;;
       *)
         log "ERROR" $func "Unrecognized argument: $key"
         print_usage
@@ -345,13 +361,14 @@ function install {
   assert_not_empty "--install-bucket" "$ib"
   assert_not_empty "--key" "$k"
   assert_not_empty "--cert" "$c"
+  assert_not_empty "--api_addr" "$a_ad"
 
   log "INFO" $func "Starting Vault install"
   install_dependencies
   create_vault_user "$DEFAULT_VAULT_USER"
   get_vault_binary "$vb"
   install_vault "$DEFAULT_INSTALL_PATH" "$TMP_DIR" "$TMP_ZIP"
-  create_vault_install_paths "$DEFAULT_VAULT_PATH" "$DEFAULT_VAULT_CERTS" "$DEFAULT_VAULT_USER" "$DEFAULT_VAULT_CONFIG" "$k" "$c"
+  create_vault_install_paths "$DEFAULT_VAULT_PATH" "$DEFAULT_VAULT_CERTS" "$DEFAULT_VAULT_USER" "$DEFAULT_VAULT_CONFIG" "$k" "$c" "$a_ad"
   install_vault_tls_keys "$ib" "$k" "$c" "$DEFAULT_VAULT_CERTS"
   create_vault_service "$DEFAULT_VAULT_SERVICE"
   log "INFO" $func "Vault install complete!"

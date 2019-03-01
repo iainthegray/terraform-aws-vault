@@ -21,6 +21,7 @@ function do_install {
   if $(has_apt_get); then
     log "INFO" "$func" "This is a debian based install - using apt"
     sudo apt-get update -y
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
     sudo apt-get install -y awscli curl unzip jq
   elif $(has_yum); then
     log "INFO" "$func" "This is a redhat based install - using yum"

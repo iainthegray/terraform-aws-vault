@@ -37,6 +37,12 @@ function update_vault {
   sudo sed -i'' "s/{{ vault_token }}/$at/" /etc/vault.d/vault.hcl
 }
 
+function update-vault-api {
+  local func="update_vault-api"
+  local ad="$1"
+  sudo sed -i'' "s/https:\/\/elb:/https:\/\/$ad/" /etc/vault.d/vault.hcl
+}
+
 function add_auto_unseal {
   local func="add_auto_unseal"
   local k="$1"
@@ -96,6 +102,11 @@ function install {
         ;;
       --strip-acl-comment)
         strip_acl_comments
+        exit
+        ;;
+      --update-vault-api)
+        ap_ad="$2"
+        update-vault-api $ap_ad
         exit
         ;;
       *)

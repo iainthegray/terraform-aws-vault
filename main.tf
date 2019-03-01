@@ -62,6 +62,8 @@ resource "aws_launch_configuration" "vault_instance_asg" {
   instance_type        = "${var.instance_type}"
   iam_instance_profile = "${aws_iam_instance_profile.cluster_server.id}"
   security_groups      = ["${concat(var.additional_sg_ids, list(aws_security_group.vault_cluster_int.id))}"]
+  key_name                    = "${var.ssh_key_name}"
+  user_data                   = "${data.template_file.vault_user_data.rendered}"
 }
 
 resource "aws_autoscaling_group" "vault_asg" {
@@ -85,19 +87,24 @@ resource "aws_autoscaling_group" "vault_asg" {
   lifecycle {
     create_before_destroy = true
   }
-}
-
-resource "aws_kms_key" "vault" {
-  count                   = "${(var.use_auto_unseal ? 1 : 0)}"
-  description             = "Vault unseal key"
-  deletion_window_in_days = "${var.kms_deletion_days}"
-  enable_key_rotation     = "${var.kms_key_rotate}"
-
-  tags {
-    Name = "vault-kms-unseal-${var.cluster_name}"
+  tag {
+    key     = "Name"
+    value   = "vault_server"
+    propagate_at_launch = true
   }
 }
-
+# Create a new load balancer attachment for ASG if ASG is used
+resource "aws_autoscaling_attachment" "asg_attachment_vault" {
+  count                  = "${(var.use_elb && var.use_asg ? 1 : 0)}"
+  autoscaling_group_name = "${aws_autoscaling_group.vault_asg.id}"
+  elb                    = "${aws_elb.vault_elb.id}"
+}
+# Alternatively attach the instances directly to the ELB
+resource "aws_elb_attachment" "instance_attach_vault" {
+  count                  = "${(var.use_elb  && !var.use_asg ? var.vault_cluster_size : 0)}"
+  elb                    = "${aws_elb.vault_elb.id}"
+  instance               = "${element(aws_instance.vault-instance.*.id, count.index)}"
+}
 /*------------------------------------------------------------------------------
 This is the configuration for the ELB. This is defined only if the variable
 var.use_elb = true
@@ -105,17 +112,24 @@ var.use_elb = true
 resource "aws_elb" "vault_elb" {
   count                       = "${(var.use_elb ? 1 : 0)}"
   name_prefix                 = "elb-"
-  internal                    = true
+  internal                    = "${var.internal_elb}"
   cross_zone_load_balancing   = "${var.cross_zone_load_balancing}"
   idle_timeout                = "${var.idle_timeout}"
   connection_draining         = "${var.connection_draining}"
   connection_draining_timeout = "${var.connection_draining_timeout}"
-  subnets                     = ["${var.private_subnets}"]
+  security_groups             = ["${aws_security_group.elb_sg.id}"]
+  subnets                     = ["${split(",", var.internal_elb ? join(",", var.private_subnets) : join(",", var.public_subnets))}"]
 
   listener {
     lb_port           = "${var.lb_port}"
     lb_protocol       = "TCP"
     instance_port     = "${var.vault_api_port}"
+    instance_protocol = "TCP"
+  }
+  listener {
+    lb_port           = 8201
+    lb_protocol       = "TCP"
+    instance_port     = 8201
     instance_protocol = "TCP"
   }
 
@@ -128,6 +142,40 @@ resource "aws_elb" "vault_elb" {
   }
 }
 
+resource "aws_security_group" "elb_sg" {
+  count    = "${(var.use_elb || var.use_asg ? 1 : 0)}"
+  description = "Enable vault UI and API access to the elb"
+  name        = "elb-security-group"
+  vpc_id      = "${var.vpc_id}"
+
+  ingress {
+    protocol    = "tcp"
+    from_port   = 8200
+    to_port     = 8201
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    protocol    = -1
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+/*--------------------------------------------------------------
+Vault Cluster AWS KMS key
+--------------------------------------------------------------*/
+resource "aws_kms_key" "vault" {
+  count                   = "${(var.use_auto_unseal ? 1 : 0)}"
+  description             = "Vault unseal key"
+  deletion_window_in_days = "${var.kms_deletion_days}"
+  enable_key_rotation     = "${var.kms_key_rotate}"
+
+  tags {
+    Name = "vault-kms-unseal-${var.cluster_name}"
+  }
+}
 /*--------------------------------------------------------------
 Vault Cluster Instance Security Group
 --------------------------------------------------------------*/
@@ -141,6 +189,16 @@ resource "aws_security_group" "vault_cluster_int" {
 /*--------------------------------------------------------------
 Vault Cluster Internal Security Group Rules
 --------------------------------------------------------------*/
+resource "aws_security_group_rule" "vault_cluster_allow_elb_820x_tcp" {
+  count             = "${(var.use_elb || var.use_asg ? 1 : 0)}"
+  type              = "ingress"
+  from_port         = 8200
+  to_port           = 8201
+  protocol          = "tcp"
+  source_security_group_id = "${aws_security_group.elb_sg.id}"
+  description       = "Vault API port between elb and servers"
+  security_group_id = "${aws_security_group.vault_cluster_int.id}"
+}
 
 resource "aws_security_group_rule" "vault_cluster_allow_self_8300-8302_tcp" {
   type              = "ingress"
@@ -287,6 +345,7 @@ data "template_file" "vault_user_data" {
     cluster_tag         = "${var.cluster_tag}"
     consul_cluster_size = "${var.consul_cluster_size}"
     aws_region          = "${var.aws_region}"
+    api_addr            = "${(var.use_elb ? "elb" : "host")}"
   }
 }
 

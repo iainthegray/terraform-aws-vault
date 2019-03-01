@@ -17,6 +17,8 @@ function print_usage {
   echo
   echo -e "  --kms-region\t\t The region of the kms key if you are using auto-unseal"
   echo
+  echo -e "  --elb-dns\t\t The dns name for teh elb if you are using one."
+  echo
   echo "This script can be used to install Consul as a backend to Vault. It has been tested with Ubuntu 18.04 and Centos 7."
   echo
 }
@@ -105,6 +107,14 @@ function update_vault_hcl {
   ret=`ssh -oStrictHostKeyChecking=no $ip "bash ${TMP_DIR}/install-final.sh --update-vault-hcl $vt"`
 }
 
+function update_vault_api_addr {
+  local func="update_vault_api_addr"
+  local ip="$1"
+  local ad="$2"
+  log "INFO" "${func}" "updating vault api_addr"
+  ret=`ssh -oStrictHostKeyChecking=no $ip "bash ${TMP_DIR}/install-final.sh --update-vault-api $ad"`
+}
+
 function add_auto_unseal {
   local func="add_auto_unseal"
   local ip="$1"
@@ -152,6 +162,10 @@ function install {
         ;;
       --kms-region)
         KEY_REGION="$2"
+        shift
+        ;;
+      --elb-dns)
+        ELB_DNS="$2"
         shift
         ;;
       *)
@@ -209,13 +223,21 @@ function install {
   do
     update_vault_hcl "$ip" "$VT"
   done
+# SSH to all vault servers and set the api_addr IF using an ELB
+  if [ "X$ELB_DNS" != "X" ]
+  then
+    for ip in `echo $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
+    do
+      update_vault_api_addr "$ip" "$ELB_DNS"
+    done
+  fi
 # SSH to first consul server and stop it
   for ip in `echo $CONSUL_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
   do
     consul_action "stop" "$ip"
   done
   log "INFO" $func "KMS_KEY = $KEY_ID KMS_REG = $KEY_REGION"
-  if [ -n "$KEY_ID" -a -n $KEY_REGION ]
+  if [ -n "$KEY_ID" -a -n "$KEY_REGION" ]
   then
     for ip in `echo $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
     do

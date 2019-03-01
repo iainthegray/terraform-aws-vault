@@ -2,18 +2,12 @@
 
 This repo contains a module for how to deploy a [Vault](https://www.vaultproject.io/) cluster on [AWS](https://aws.amazon.com/) using [Terraform](https://www.terraform.io/). It follows the patterns laid out in the [Vault Reference Architecture](https://learn.hashicorp.com/vault/operations/ops-reference-architecture) and the [Vault Deployment Guide](https://www.vaultproject.io/guides/operations/deployment-guide.html).
 
-This module includes:
+## Contents
 
 * A terraform module to install Vault into AWS.
 * A packer directory containing the packer code to build Vault and Consul AMIs
 * The module can be used with the Packer built AMIs or userdata to configure up to the standard listed in the [Deployment Guide](https://www.vaultproject.io/guides/operations/deployment-guide.html).
 
-## Versions
-This module has been tested with Ubuntu 18.04 and Centos 7.x OS
-This has been tested with Vault 1.x
-This has been tested with Consul 1.3.x. The configuration and userdata setup will not work for consul 1.4.x currently
-
-## Setup
 This module is specifically designed to deliver the [Reference Architecture](https://learn.hashicorp.com/vault/operations/ops-reference-architecture) and as such adheres to that pattern. This means that it has these specifics that are not configurable:
 * A Vault cluster using TLS
 * The Vault cluster is backed by a consul cluster for storage
@@ -30,6 +24,14 @@ The module has these specifics that are configurable:
 * The module can be set to install and configure Vault and Consul via userdata or this can be turned off.
 * The module contains packer scripts to build Vault and Consul AMIs as per the deployment guide if required so that you have the option of using userdata, using the module AMI or building your own AMI.
 * The vault cluster can be set up to use AWS KMS key for auto unseal (something that is recommended if using an ASG)
+
+## Versions
+This module has been tested with Ubuntu 18.04 and Centos 7.x OS
+This has been tested with Vault 1.x
+This has been tested with Consul 1.3.x. The configuration and userdata setup will not work for consul 1.4.x currently
+
+## Setup
+This module is to deliver a Vault cluster on linux with systemd on AWS.
 
 ## Usage
 ```hcl
@@ -49,7 +51,8 @@ module vault_cluster {
 
 }
 ```
-## Required Input Variables
+## Variables
+### Required Input Variables
 * cluster_name      - name of your cluster
 * vault_ami_id      - The AMI id for the vault cluster server instances. This can be the same as the consul_ami_id if you are using the userdata install method.
 * consul_ami_id     - The AMI id for the consul cluster server instances
@@ -59,7 +62,7 @@ module vault_cluster {
 * availability_zones - The availability zones that the cluster will be installed in. This should match up with the private_subnets list so that there is at least 1 subnet in each AZ.
 * vpc_id            - The AWS VPC id
 
-## Optional Input Variables
+### Optional Input Variables
 These are listed below with their defined defaults. If you wish to change the variable value then define it in the code block for the module. see the `variables.tf` file for descriptions
 
 * use_asg (false)
@@ -90,7 +93,7 @@ These are listed below with their defined defaults. If you wish to change the va
 * cert_pem (cert.pem)
 * consul_version (1.3.1)
 
-## Output Variables
+### Output Variables
 * vault_cluster_instance_ids - The instance IDs for the vault instances.
 * vault_cluster_instance_ips - The instance ips for the vault instances.
 * consul_cluster_instance_ids - The instance IDs for the consul instances.
