@@ -71,10 +71,12 @@ variable "private_subnets" {
   description = "A list private subnets the vault cluster will be deployed into"
   type        = "list"
 }
+
 variable "public_subnets" {
   description = "A list public subnets used if the nlb is deployed into a public network"
   type        = "list"
 }
+
 variable "availability_zones" {
   description = "A list AZs the vault cluster will be deployed into"
   type        = "list"

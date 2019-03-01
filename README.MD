@@ -16,9 +16,9 @@ This module is specifically designed to deliver the [Reference Architecture](htt
 
 The module has these specifics that are configurable:
 * The Vault cluster can be set up as _n_ standalone instances or inside an ASG depending on your preference.
-* The Vault cluster can be fronted by an _internal_ ELB or not, depending on your preference.
+* The Vault cluster can be fronted by an _internal_ or _external_ ELB or not, depending on your preference.
 * The number of Vault nodes can be configured, though 3 is the default and recommended number
-* The number of Consul nodes can be configured though 5 is the default, 5 can be used.
+* The number of Consul nodes can be configured though 5 is the default, 5 as per the recommended architecture.
 * The recommended architecture suggests that the 3 Vault nodes be spread across 3 separate availability zones, but this module will take fewer than that.
 * While this module manages the security groups to allow for the correct function of the cluster, it is possible to add further security groups to the instances if other connectivity is desired.
 * The module can be set to install and configure Vault and Consul via userdata or this can be turned off.
@@ -46,9 +46,17 @@ module vault_cluster {
   vault_ami_id           = "${var.ami_id}"
   consul_ami_id          = "${var.ami_id}"
   private_subnets        = "${module.vpc.private_subnets}"
+  public_subnets         = "${module.vpc.public_subnets}"
   vpc_id                 = "${module.vpc.vpc_id}"
   availability_zones     = "${var.availability_zones}"
-
+  cluster_name           = "${var.cluster_name}"
+  vault_ami_id           = "${var.ami_id}"
+  consul_ami_id          = "${var.ami_id}"
+  use_asg                = true
+  use_elb                = true
+  internal_elb           = false
+  use_auto_unseal        = true
+  aws_region             = "${var.global_region}"
 }
 ```
 ## Variables
@@ -59,6 +67,7 @@ module vault_cluster {
 * instance_type - The AWS instance type you wish for the Vault and Consul servers
 * ssh_key_name      - The AWS key-pair name to use for the instances
 * private_subnets   - a list of the private subnets the cluster will be installed to. This can be from 1 to `var.consul_cluster_size`. This defaults to 3
+* public_subnets    - - a list of the public subnets the elb will be installed to.
 * availability_zones - The availability zones that the cluster will be installed in. This should match up with the private_subnets list so that there is at least 1 subnet in each AZ.
 * vpc_id            - The AWS VPC id
 
@@ -230,10 +239,10 @@ This script performs the following functions:
 * Generate an ACL master token on one consul server
 * Generate an agent ACL token on one consul server
 * Set up that agent ACL token on all consul servers and clients
-* Restart all consul servers and clients
+* sets up the kms_key if used
 * Generate a Vault ACL token on one consul server
 * Set up that vault ACL token on all vault servers
-* Restart all Vault servers
+* sets the vault api_addr to either the individual host ips (if no elb is used) or the supplied dns for the elb
 
 This will then complete the configuration of the vault cluster as per the deployment guide.
 For ease of use the consul master token is output by the script and should be saved (possibly as a vault static secret) if this may be required again.
@@ -252,9 +261,13 @@ Options:
 
   --kms-key     The key id for the kms key if this has been set to be used
 
-  --kms-region  The region that the kms key was created in.     
+  --kms-region  The region that the kms key was created in.   
+
+  --elb-dns     The dns name that the vault servers can redirect API calls to if used  
 ```
 It is arguable whether this final step should be included in any sort of deployment as this is really the domain of configuration management, however it is included here for completeness to finalise the vault install so that it fully replicates the deployment guide.
 
 ## Next Steps
 At this point if all steps are completed there will be a vault cluster backed by a consul storage backend. This vault cluster will need to be initialised and unsealed.
+
+There is a script to stop and start the cluster in the cfg directory _vault_control.sh_
