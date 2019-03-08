@@ -1,6 +1,5 @@
 /*--------------------------------------------------------------
  Vault cluster
- This is an example for using the vault cluster module.
 --------------------------------------------------------------*/
 module vault_cluster {
   source        = "../terraform-aws-vault"
@@ -13,33 +12,32 @@ module vault_cluster {
   ]
 
   cluster_name       = "${var.cluster_name}"
-  vault_ami_id       = "${var.ami_id}"
-  consul_ami_id      = "${var.ami_id}"
+  vault_ami_id       = "${var.vault_ami_id}"
+  consul_ami_id      = "${var.consul_ami_id}"
   private_subnets    = "${module.vpc.private_subnets}"
+  public_subnets    = "${module.vpc.public_subnets}"
   vpc_id             = "${module.vpc.vpc_id}"
   use_asg            = false
   use_elb            = false
+  internal_elb       = false
+  use_auto_unseal    = true
   availability_zones = "${var.availability_zones}"
-
+  aws_region         = "${var.global_region}"
+  vault_cluster_size = 3
+  consul_cluster_size = 3
   # Userdata stuff
   use_userdata   = true
   install_bucket = "${var.my_bucket}"
-
   # vault_bin      = "vault.zip"
-  vault_version = "1.0.1"
-  key_pem       = "key.pem"
-  cert_pem      = "cert.pem"
-
+  vault_version  = "1.0.1"
+  key_pem        = "key.pem"
+  cert_pem       = "cert.pem"
   # consul_version = "1.3.1"
-  consul_bin          = "consul_1.3.1_linux_386.zip"
-  consul_cluster_size = "${var.consul_cluster_size}"
+  consul_bin     = "consul_1.3.1_linux_386.zip"
 }
 
 /*--------------------------------------------------------------
  Vault cluster External access Security Group
- This is a new security group that allows vault and consul ui
- access form the bastion.
- It also allows ssh to the cluster form the bastion
 --------------------------------------------------------------*/
 resource "aws_security_group" "vault_cluster_ext" {
   name        = "vault_cluster_ext"
@@ -84,10 +82,10 @@ resource "aws_security_group_rule" "vault_cluster_allow_ingress_8600" {
  policy on top of that and add to instance_profile
  use -target to create the bucket first
 --------------------------------------------------------------*/
-module private_s3 {
-  source      = "../terraform-aws-vault/modules/private-s3"
-  bucket_name = "${var.my_bucket}"
-}
+# module private_s3 {
+#   source = "../terraform-aws-vault/modules/private-s3"
+#   bucket_name = "${var.my_bucket}"
+# }
 
 /*--------------------------------------------------------------
 You can add the cert, key and other install files like so
