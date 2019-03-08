@@ -218,7 +218,9 @@ The packer directory contains 2 packer configs - one to install the vault nodes 
 vault_ami_id           = "${var.vault_ami_id}"
 consul_ami_id          = "${var.consul_ami_id}"
 ```
-If you pre-build the AMIs via this method then you should also set the use_userdata variable to false so that the vault and consul installs are not overwritten
+If you pre-build the AMIs via this method then you should also set the use_userdata variable to false so that the vault and consul installs are not overwritten.
+
+A current caveat with Ubuntu installs is that tehy seem to require a reboot directly after install and before the final_config script is run.
 ```
 use_userdata = false
 ```
@@ -244,6 +246,7 @@ This script performs the following functions:
 * Set up that vault ACL token on all vault servers
 * sets the vault api_addr to either the individual host ips (if no elb is used) or the supplied dns for the elb
 
+There is a continue and break point in the script that allows you to check if the consul cluster has actually come up and has returned a management token for ACL initialisation before continuing. This is in there as there are some issues with ubuntu at the moment when the instances are not rebooted, consul does not start correctly.
 This will then complete the configuration of the vault cluster as per the deployment guide.
 For ease of use the consul master token is output by the script and should be saved (possibly as a vault static secret) if this may be required again.
 
@@ -264,6 +267,8 @@ Options:
   --kms-region  The region that the kms key was created in.   
 
   --elb-dns     The dns name that the vault servers can redirect API calls to if used  
+
+  --install-bucket  This should be used only if you are installing from a packer install as the script will need to download the install_final.sh script to each server.
 ```
 It is arguable whether this final step should be included in any sort of deployment as this is really the domain of configuration management, however it is included here for completeness to finalise the vault install so that it fully replicates the deployment guide.
 

@@ -2,7 +2,7 @@
 # This script is used to do the final config of vault and consul as per the
 # deployment guide: https://www.vaultproject.io/guides/operations/deployment-guide.html
 
-TMP_DIR="/tmp/ins"
+TMP_DIR="/tmp/install_files"
 
 function log {
   local -r level="$1"

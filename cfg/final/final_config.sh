@@ -2,7 +2,7 @@
 # This script is used to do the final config of vault and consul as per the
 # deployment guide: https://www.vaultproject.io/guides/operations/deployment-guide.html
 
-TMP_DIR="/tmp/ins"
+TMP_DIR="/tmp/install_files"
 
 function print_usage {
   echo
@@ -18,6 +18,8 @@ function print_usage {
   echo -e "  --kms-region\t\t The region of the kms key if you are using auto-unseal"
   echo
   echo -e "  --elb-dns\t\t The dns name for teh elb if you are using one."
+  echo
+  echo -e "  --install-bucket\t\t The name of the bucket containing install files if using packer install."
   echo
   echo "This script can be used to install Consul as a backend to Vault. It has been tested with Ubuntu 18.04 and Centos 7."
   echo
@@ -64,13 +66,23 @@ function consul_action {
     esac
     echo $alive
 }
-
+function copy_install_files {
+  local func="bootstrap_acl"
+  local cip="$1"
+  if [ -n "$IB" ]
+  then
+    log "INFO" "${func}" "Copying install files to $cip"
+    ssh -oStrictHostKeyChecking=no $cip "mkdir /tmp/install_files"
+    ssh -oStrictHostKeyChecking=no $cip "aws s3 cp s3://${IB}/install_files/install-final.sh /tmp/install_files"
+  fi
+}
 function bootstrap_acl {
   local func="bootstrap_acl"
   local cip="$1"
   log "INFO" "${func}" "Bootstrapping ACLs on host $cip"
   ret=`ssh -oStrictHostKeyChecking=no $cip "bash ${TMP_DIR}/install-final.sh --bs-acl"`
   echo $ret | cut -d'"' -f4
+
 }
 
 function set_agent_token {
@@ -168,6 +180,10 @@ function install {
         ELB_DNS="$2"
         shift
         ;;
+      --install-bucket)
+        IB="$2"
+        shift
+        ;;
       *)
         log "ERROR" $func "Unrecognized argument: $key"
         print_usage
@@ -187,6 +203,11 @@ function install {
   VT=''
   log "INFO" $func "Installing to these consul servers $CONSUL_IPS"
   log "INFO" $func "Installing to these vault servers $VAULT_IPS"
+  # copy the install files to the TMP_DIR
+  for ip in `echo $CONSUL_IPS $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
+  do
+    copy_install_files "$ip"
+  done
   # remove the commenting from the ACL lines in consul
   for ip in `echo $CONSUL_IPS $VAULT_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
   do
@@ -201,9 +222,19 @@ function install {
   log "INFO" "MAIN" "sleeping 5"
   sleep 5
   log "INFO" "MAIN" "sleeping 10"
-  sleep 5
+  sleep 10
   consul_server=`echo $CONSUL_IPS | awk -F, '{print $1}'`
   MT=`bootstrap_acl "$consul_server"`
+  echo "Management Token = $MT"
+  echo "Continue (only 'Y' will continue)"
+  read cont
+  case $cont in
+    Y)
+    ;;
+    *)
+    exit
+    ;;
+  esac
   log "INFO" $func "Management token for consul = $MT"
   alive=`check_consul_up $consul_server $MT`
   log "INFO" $func "Consul servers alive = $alive"

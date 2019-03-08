@@ -77,7 +77,9 @@ function install_dependencies {
 
   if $(has_apt_get); then
     sudo apt-get update -y
-    sudo apt-get install -y awscli curl unzip jq
+    sudo apt-get install -y awscli jq curl unzip
+    sudo apt-get upgrade -y
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
   elif $(has_yum); then
     # sudo yum update -y
     sudo yum install -y unzip jq

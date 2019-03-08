@@ -77,6 +77,7 @@ function install_dependencies {
 
   if $(has_apt_get); then
     sudo apt-get update -y
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
     sudo apt-get install -y awscli curl unzip jq
   elif $(has_yum); then
     # sudo yum update -y
@@ -192,10 +193,9 @@ function get_vault_binary {
     fi
   else
     assert_not_empty "--vault-bin" "$bin"
-    local -r loc="$ib"
-    log "INFO" $func "Copying vault binary to local $loc"
-    log "INFO" $func "s3://${loc}/install_files/${bin}  ${tmp}/${zip}"
-    aws s3 cp "s3://${loc}/install_files/${bin}" "${tmp}/${zip}"
+    log "INFO" $func "Copying vault binary from $ib"
+    log "INFO" $func "s3://${ib}/install_files/${bin}  ${tmp}/${zip}"
+    aws s3 cp "s3://${ib}/install_files/${bin}" "${tmp}/${zip}"
     ex_c=$?
     log "INFO" $func "s3 copy exit code == $ex_c"
     if [ $ex_c -ne 0 ]

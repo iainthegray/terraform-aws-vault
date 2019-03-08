@@ -1,15 +1,15 @@
 {
   "description": "This is a basic packer file for building a simple AWS AMI containing consul",
   "variables": {
-    "install_bucket": "s3://irg-personal/Packer",
+    "install_bucket": "s3://irg-personal/install_files",
     "consul_version": "1.3.1",
-    "source_ami": "ami-02790d1ebf3b5181d",
+    "source_ami": "ami-08d658f84a6d84a80",
     "os_version_tag": "Ubuntu 18.04 LTS",
     "ssh_user": "ubuntu",
     "aws_region": "eu-west-1",
     "inst_type": "t2.micro",
     "inst_profile": "Packer-S3-Access",
-    "tag": "MY_TEST_CONSUL_CLUSTER",
+    "tag": "My_consul_cluster",
     "siz": "3"
   },
   "builders": [
@@ -19,13 +19,13 @@
       "source_ami": "{{user `source_ami`}}",
       "instance_type": "{{user `inst_type`}}",
       "ssh_username": "{{user `ssh_user`}}",
-      "ami_name": "vault{{timestamp}}",
+      "ami_name": "consul{{isotime \"2006-01-02_03.04.05\"}}",
       "iam_instance_profile": "{{user `inst_profile`}}",
       "communicator": "ssh",
       "tags": {
         "OS_Version": "{{user `os_version_tag`}}",
         "Base_AMI_Name": "{{ .SourceAMIName }}",
-        "Install": "vault"
+        "Install": "Consul"
       }
     }
   ],
@@ -39,7 +39,7 @@
     {
       "type": "shell",
       "inline": [
-        "bash /tmp/install_files/install-consul.sh --install-bucket {{user `install_bucket`}} --version {{user `consul_version`}} --tag {{user `tag`}} --cluster-size {{user `siz`}}
+        "bash /tmp/install_files/install-consul.sh --install-bucket {{user `install_bucket`}} --version {{user `consul_version`}} --tag {{user `tag`}} --cluster-size {{user `siz`}} --client 0"
       ]
     }
   ]

@@ -35,29 +35,29 @@ function do_install {
   fi
 
   cd /tmp
-  log "INFO" "$func" "Creating install dir /tmp/ins"
-  mkdir ins
+  log "INFO" "$func" "Creating install dir /tmp/install_files"
+  mkdir install_files
   log "INFO" "$func" "copying consul install script"
-  aws s3 cp "s3://${install_bucket}/install_files/install-consul.sh" ins
+  aws s3 cp "s3://${install_bucket}/install_files/install-consul.sh" install_files
   log "INFO" "$func" "copying vault install script"
-  aws s3 cp "s3://${install_bucket}/install_files/install-vault.sh" ins
+  aws s3 cp "s3://${install_bucket}/install_files/install-vault.sh" install_files
   log "INFO" "$func" "copying final install script"
-  aws s3 cp "s3://${install_bucket}/install_files/install-final.sh" ins
+  aws s3 cp "s3://${install_bucket}/install_files/install-final.sh" install_files
   if [[ -z "${consul_version}" ]]
   then
     log "INFO" "$func" "Doing a binary install from S3 for consul"
-    bash ins/install-consul.sh --install-bucket ${install_bucket} --consul-bin ${consul_bin} --client 1 --tag "${cluster_tag}" --cluster-size ${consul_cluster_size}
+    bash install_files/install-consul.sh --install-bucket ${install_bucket} --consul-bin ${consul_bin} --client 1 --tag "${cluster_tag}" --cluster-size ${consul_cluster_size}
   else
     log "INFO" "$func" "Doing a download install from releases for consul"
-    bash ins/install-consul.sh --install-bucket ${install_bucket} --version ${consul_version} --client 1 --tag "${cluster_tag}" --cluster-size ${consul_cluster_size}
+    bash install_files/install-consul.sh --install-bucket ${install_bucket} --version ${consul_version} --client 1 --tag "${cluster_tag}" --cluster-size ${consul_cluster_size}
   fi
   if [[ -z "${vault_version}" ]]
   then
     log "INFO" "$func" "Doing a binary install from S3 for vault"
-    bash ins/install-vault.sh --install-bucket ${install_bucket} --vault-bin ${vault_bin} --key ${key_pem} --cert ${cert_pem} --api_addr ${api_addr}
+    bash install_files/install-vault.sh --install-bucket ${install_bucket} --vault-bin ${vault_bin} --key ${key_pem} --cert ${cert_pem} --api_addr ${api_addr}
   else
     log "INFO" "$func" "Doing a download install from releases for vault"
-    bash ins/install-vault.sh --install-bucket ${install_bucket} --version ${vault_version} --key ${key_pem} --cert ${cert_pem} --api_addr ${api_addr}
+    bash install_files/install-vault.sh --install-bucket ${install_bucket} --version ${vault_version} --key ${key_pem} --cert ${cert_pem} --api_addr ${api_addr}
   fi
 }
 
