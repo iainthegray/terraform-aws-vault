@@ -2,6 +2,8 @@
 # This script is used to do the final config of vault and consul as per the
 # deployment guide: https://www.vaultproject.io/guides/operations/deployment-guide.html
 
+set -euf -o pipefail
+
 TMP_DIR="/tmp/ins"
 
 function print_usage {

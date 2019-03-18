@@ -9,7 +9,8 @@
 # 1. Centos 7
 # https://aws.amazon.com/marketplace/pp/B00O7WM7QW
 
-set -e
+set -euf -o pipefail
+
 
 readonly DEFAULT_INSTALL_PATH="/usr/local/bin/consul"
 readonly DEFAULT_CONSUL_USER="consul"

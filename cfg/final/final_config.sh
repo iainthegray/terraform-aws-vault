@@ -2,6 +2,8 @@
 # This script is used to do the final config of vault and consul as per the
 # deployment guide: https://www.vaultproject.io/guides/operations/deployment-guide.html
 
+set -euf -o pipefail
+
 TMP_DIR="/tmp/install_files"
 
 function print_usage {
@@ -17,7 +19,7 @@ function print_usage {
   echo
   echo -e "  --kms-region\t\t The region of the kms key if you are using auto-unseal"
   echo
-  echo -e "  --elb-dns\t\t The dns name for teh elb if you are using one."
+  echo -e "  --elb-dns\t\t The dns name for the elb if you are using one."
   echo
   echo -e "  --install-bucket\t\t The name of the bucket containing install files if using packer install."
   echo
