@@ -1,0 +1,22 @@
+ssh_key_name = "eu-west-1-key"
+cluster_name = "my_vault_cluster"
+# ami_id = "ami-02790d1ebf3b5181d"
+# vault_ami_id = "ami-07716bb097ef3eb7e"
+# consul_ami_id = "ami-08833783a8de5c128"
+vault_ami_id = "ami-08d658f84a6d84a80"
+consul_ami_id = "ami-08d658f84a6d84a80"
+ami_id = "ami-08d658f84a6d84a80"
+instance_type = "t2.micro"
+availability_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
+# azs = ["eu-west-1a", "eu-west-1b"]
+private_subnets_cidr = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+# private_subnets_cidr = ["10.0.1.0/24", "10.0.2.0/24"]
+public_subnets_cidr  = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+# public_subnets_cidr  = ["10.0.101.0/24", "10.0.102.0/24"]
+site_specific_tags = {
+  "Environment" = "test",
+  "MyTag" = "Taggy-taggy-tag"
+}
+global_region = "eu-west-1"
+my_user = "iain"
+my_bucket = "irg-personal"
