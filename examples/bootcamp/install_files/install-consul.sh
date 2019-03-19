@@ -288,7 +288,7 @@ function install {
         ;;
       --version)
         version="$2"
-        TMP_ZIP="consul_${v}_linux_386.zip"
+        TMP_ZIP="consul_${version}_linux_386.zip"
         shift
         ;;
       --consul-bin)
