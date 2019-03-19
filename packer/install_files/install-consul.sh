@@ -1,6 +1,7 @@
 #!/bin/bash
 # This script is used to install Consul as a vault backend as per the deployment guide:
 # https://www.vaultproject.io/guides/operations/deployment-guide.html
+# It installs consul as a separate consul binary only to be used for vault storage
 
 # operating systems tested on:
 #
@@ -9,15 +10,16 @@
 # 1. Centos 7
 # https://aws.amazon.com/marketplace/pp/B00O7WM7QW
 
-set -euf -o pipefail
 
 
-readonly DEFAULT_INSTALL_PATH="/usr/local/bin/consul"
+
+readonly DEFAULT_INSTALL_PATH="/usr/local/bin/consul-storage"
 readonly DEFAULT_CONSUL_USER="consul"
-readonly DEFAULT_CONSUL_PATH="/etc/consul.d/"
-readonly DEFAULT_CONSUL_OPT="/opt/consul/"
-readonly DEFAULT_CONSUL_CONFIG="consul.hcl"
-readonly DEFAULT_CONSUL_SERVICE="/etc/systemd/system/consul.service"
+readonly DEFAULT_CONSUL_PATH="/etc/vault.d"
+readonly DEFAULT_CONSUL_OPT="/opt/consul-storage/"
+readonly DEFAULT_CONSUL_CONFIG="consul-storage.hcl"
+readonly DEFAULT_CONSUL_SERVICE="/etc/systemd/system/consul-storage.service"
+readonly DEFAULT_CONSUL_SERVICE_NAME="consul-storage"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TMP_DIR="/tmp/install"
 readonly SCRIPT_NAME="$(basename "$0")"
@@ -122,13 +124,16 @@ function create_consul_install_paths {
   log "INFO" $func "path = $path username=$username config = $config opt = $opt client = $client tag_val = $tag_val bs = $bs_exp"
 
   log "INFO" $func "Creating install dirs for Consul at $path"
-  sudo mkdir -p "$path"
+  if [[ ! -d "$path" ]]
+  then
+    sudo mkdir -p "$path"
+  fi
   sudo mkdir -p "$opt"
 
   sudo cat << EOF > ${TMP_DIR}/outy
 
 datacenter = "dc1"
-data_dir = "/opt/consul"
+data_dir = "${opt}"
 # encrypt = "{{ key from keygen }}"
 retry_join = ["provider=aws  tag_key=CONSUL_CLUSTER_TAG  tag_value=${tag_val}"]
 performance {
@@ -152,22 +157,31 @@ EOF
   else
     log "INFO" $func "Installing a consul client"
   fi
-sudo cp ${TMP_DIR}/outy ${path}$config
-sudo chmod 640 ${path}$config
+sudo cp ${TMP_DIR}/outy ${path}/$config
+sudo chmod 640 ${path}/$config
 log "INFO" $func "Changing ownership of $path to $username"
-sudo chown -R "$username:$username" "$path"
+if [[ $client -eq 0 ]]
+then
+  sudo chown -R "$username:$username" "$path"
+fi
 sudo chown -R "$username:$username" "$opt"
 }
 
 function get_consul_binary {
+  # if there is no version then we are going to get binary from S3
+  # else we download from consul site. This is set by type varaiable of 1 or 0
+  # if type == 1 then we get bin from S3
+  #  else we get bin from download
+
   local func="get_consul_binary"
   local -r bin="$1"
+  local -r type="$2"
   local -r zip="$TMP_ZIP"
-  local -r ver="$v"
 
-  if [[ -z $bin ]]
+  if [[ $type != 1 ]] # get from download
   then
-    assert_not_empty "--version" $v
+    ver="$bin"
+    assert_not_empty "--version" $ver
     log "INFO" $func "Copying consul version $ver binary to local"
     cd $TMP_DIR
     curl -O https://releases.hashicorp.com/consul/${ver}/consul_${ver}_linux_386.zip
@@ -190,22 +204,19 @@ function get_consul_binary {
     fi
   else
     assert_not_empty "--consul-bin" "$bin"
-    local -r loc="$ib"
-    local -r tmp="$TMP_DIR"
-
-    log "INFO" $func "Copying consul binary to local"
-    log "INFO" $func "s3://${loc}/install_files/${bin}  ${tmp}/${zip}"
-    aws s3 cp "s3://${loc}/install_files/${bin}" "${tmp}/${zip}"
+    log "INFO" $func "Copying consul binary from $ib to local"
+    log "INFO" $func "s3://${ib}/install_files/${bin}  ${TMP_DIR}/${zip}"
+    aws s3 cp "s3://${ib}/install_files/${bin}" "${TMP_DIR}/${zip}"
     ex_c=$?
     log "INFO" $func "s3 copy exit code == $ex_c"
     if [ $ex_c -ne 0 ]
     then
-      log "ERROR" $func "The copy of the consul binary from ${loc}/${bin} failed"
+      log "ERROR" $func "The copy of the consul binary from ${ib}/${bin} failed"
       exit
     else
       log "INFO" $func "Copy of consul binary successful"
     fi
-    unzip -tqq ${tmp}/${zip}
+    unzip -tqq ${TMP_DIR}/${zip}
     if [ $? -ne 0 ]
     then
       log "ERROR" $func "Supplied Consul binary is not a zip file"
@@ -223,7 +234,7 @@ function install_consul {
   log "INFO" $func "Installing Consul"
   cd ${tmp} && unzip -q ${zip}
   sudo chown root:root consul
-  sudo cp consul $loc
+  sudo cp consul ${loc}
 }
 
 function create_consul_service {
@@ -237,13 +248,13 @@ function create_consul_service {
   Documentation=https://www.consul.io/
   Requires=network-online.target
   After=network-online.target
-  ConditionFileNotEmpty=/etc/consul.d/consul.hcl
+  ConditionFileNotEmpty=${DEFAULT_CONSUL_PATH}/${DEFAULT_CONSUL_CONFIG}
 
   [Service]
   User=consul
   Group=consul
-  ExecStart=/usr/local/bin/consul agent -config-dir=/etc/consul.d/
-  ExecReload=/usr/local/bin/consul reload
+  ExecStart=${DEFAULT_INSTALL_PATH} agent -config-file=${DEFAULT_CONSUL_PATH}/${DEFAULT_CONSUL_CONFIG}
+  ExecReload=${DEFAULT_INSTALL_PATH} reload
   KillMode=process
   Restart=on-failure
   LimitNOFILE=65536
@@ -253,7 +264,7 @@ function create_consul_service {
 EOF
 
   sudo cp /tmp/outy $service
-  sudo systemctl enable consul
+  sudo systemctl enable ${DEFAULT_CONSUL_SERVICE_NAME}
 
 }
 
@@ -261,6 +272,8 @@ function install {
   local func="install"
   sudo rm -rf $TMP_DIR
   mkdir $TMP_DIR
+  version=""
+  cb=""
   while [[ $# > 0 ]]; do
     local key="$1"
 
@@ -274,7 +287,7 @@ function install {
         shift
         ;;
       --version)
-        v="$2"
+        version="$2"
         TMP_ZIP="consul_${v}_linux_386.zip"
         shift
         ;;
@@ -313,7 +326,14 @@ function install {
   log "INFO" $func "Starting Consul install"
   install_dependencies
   create_consul_user "$DEFAULT_CONSUL_USER"
-  get_consul_binary "$cb"
+  # if there is no version then we are going to get binary from S3
+  # else we download from consul site
+  if [[ -z $version ]]
+  then
+    get_consul_binary "$cb" 1
+  else
+    get_consul_binary "$version" 0
+  fi
   install_consul "$DEFAULT_INSTALL_PATH" "$TMP_DIR" "$TMP_ZIP"
   create_consul_install_paths "$DEFAULT_CONSUL_PATH" "$DEFAULT_CONSUL_USER" "$DEFAULT_CONSUL_CONFIG" "$DEFAULT_CONSUL_OPT" "$c" "$tag" "$siz"
   create_consul_service "$DEFAULT_CONSUL_SERVICE"

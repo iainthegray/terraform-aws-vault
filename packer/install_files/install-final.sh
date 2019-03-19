@@ -3,7 +3,6 @@
 # deployment guide: https://www.vaultproject.io/guides/operations/deployment-guide.html
 
 
-set -euf -o pipefail
 
 
 TMP_DIR="/tmp/install_files"
@@ -32,7 +31,7 @@ function set_agent {
 function update_consul {
   local func="update_consul"
   local at="$1"
-  sudo sed -i'' "s/# acl_agent_token = {{ acl_token }}/acl_agent_token = \"$at\"/" /etc/consul.d/consul.hcl
+  sudo sed -i'' "s/# acl_agent_token = {{ acl_token }}/acl_agent_token = \"$at\"/" /etc/vault.d/consul-storage.hcl
 }
 
 function update_vault {
@@ -65,7 +64,7 @@ function set_vault {
 
 function strip_acl_comments {
   local func="strip_acl_comments"
-  sudo sed -i'' "s/# acl_d/acl_d/g" /etc/consul.d/consul.hcl
+  sudo sed -i'' "s/# acl_d/acl_d/g" /etc/vault.d/consul-storage.hcl
 }
 
 function install {

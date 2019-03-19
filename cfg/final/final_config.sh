@@ -2,9 +2,8 @@
 # This script is used to do the final config of vault and consul as per the
 # deployment guide: https://www.vaultproject.io/guides/operations/deployment-guide.html
 
-set -euf -o pipefail
 
-TMP_DIR="/tmp/install_files"
+TMP_DIR="/tmp/i_files"
 
 function print_usage {
   echo
@@ -51,16 +50,15 @@ function consul_action {
   local func="consul_action"
   local -r action="$1"
   local -r ip="$2"
-  local -r token="$3"
   local alive=0
   case "$action" in
     "start")
       log "INFO" "${func}" "Starting consul server on $ip"
-      ssh -oStrictHostKeyChecking=no $ip sudo systemctl start consul
+      ssh -oStrictHostKeyChecking=no $ip sudo systemctl start consul-storage
       ;;
     "stop")
       log "INFO" "${func}" "Stopping consul server on $ip"
-      ssh -oStrictHostKeyChecking=no $ip sudo systemctl stop consul
+      ssh -oStrictHostKeyChecking=no $ip sudo systemctl stop consul-storage
       ;;
     *)
       log "ERROR" $func "Unrecognized argument: $action"
@@ -74,8 +72,8 @@ function copy_install_files {
   if [ -n "$IB" ]
   then
     log "INFO" "${func}" "Copying install files to $cip"
-    ssh -oStrictHostKeyChecking=no $cip "mkdir /tmp/install_files"
-    ssh -oStrictHostKeyChecking=no $cip "aws s3 cp s3://${IB}/install_files/install-final.sh /tmp/install_files"
+    ssh -oStrictHostKeyChecking=no $cip "mkdir -p $TMP_DIR"
+    ssh -oStrictHostKeyChecking=no $cip "aws s3 cp s3://${IB}/install_files/install-final.sh $TMP_DIR"
   fi
 }
 function bootstrap_acl {
@@ -149,11 +147,12 @@ function check_consul_up {
   local func="update_vault_hcl"
   local ip="$1"
   local MT="$2"
-  ret=`ssh -oStrictHostKeyChecking=no $ip CONSUL_HTTP_TOKEN="$MT" consul members -status=alive | grep -v "^Node" | wc -l`
+  ret=`ssh -oStrictHostKeyChecking=no $ip CONSUL_HTTP_TOKEN="$MT" consul-storage members -status=alive | grep -v "^Node" | wc -l`
   echo $ret
 }
 function install {
   local func="install"
+  ELB_DNS=""
   while [[ $# > 0 ]]; do
     local key="$1"
 
@@ -218,6 +217,12 @@ function install {
   # SSH to first consul server and start it
   for ip in `echo $CONSUL_IPS | awk -F, '{for (i=1; i<=NF; i++) print $i}'`
   do
+    consul_action start $ip
+    sleep 5
+    log "INFO" "MAIN" "sleeping 5"
+    consul_action stop $ip
+    sleep 5
+    log "INFO" "MAIN" "sleeping 5"
     consul_action start $ip
   done
 # SSH to first consul server and bootstrap ACL

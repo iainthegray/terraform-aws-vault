@@ -9,7 +9,6 @@
 # 1. Centos 7
 # https://aws.amazon.com/marketplace/pp/B00O7WM7QW
 
-set -euf -o pipefail
 
 readonly DEFAULT_INSTALL_PATH="/usr/local/bin/vault"
 readonly DEFAULT_VAULT_USER="vault"
@@ -164,21 +163,20 @@ EOF
 function get_vault_binary {
   local func="get_vault_binary"
   local -r bin="$1"
+  local -r type="$2"
   local -r zip="$TMP_ZIP"
-  local -r tmp="$TMP_DIR"
-  local -r ver="$v"
 
-  if [[ -z $bin ]]
+  if [[ $type != 1 ]] # get from download
   then
-    assert_not_empty "--version" $v
+    ver="$bin"
+    assert_not_empty "--version" $ver
     log "INFO" $func "Copying vault version $ver binary to local"
-    cd $tmp
+    cd $TMP_DIR
     curl -O https://releases.hashicorp.com/vault/${ver}/vault_${ver}_linux_386.zip
     curl -Os https://releases.hashicorp.com/vault/${ver}/vault_${ver}_SHA256SUMS
     curl -Os https://releases.hashicorp.com/vault/${ver}/vault_${ver}_SHA256SUMS.sig
-    shasum -a 256 -c vault_${ver}_SHA256SUMS 2> /dev/null |grep vault_${ver}_linux_386.zip| grep OK
-    ex_c=$?
-    if [ $ex_c -ne 0 ]
+    ret=`shasum -a 256 -c vault_${ver}_SHA256SUMS 2> /dev/null |grep vault_${ver}_linux_386.zip| grep OK | cut -d' ' -f2`
+    if [ "$ret" != "OK" ]
     then
       log "ERROR" $func "The copy of the vault binary failed"
       exit
@@ -193,19 +191,18 @@ function get_vault_binary {
     fi
   else
     assert_not_empty "--vault-bin" "$bin"
-    log "INFO" $func "Copying vault binary from $ib"
-    log "INFO" $func "s3://${ib}/install_files/${bin}  ${tmp}/${zip}"
-    aws s3 cp "s3://${ib}/install_files/${bin}" "${tmp}/${zip}"
+    log "INFO" $func "Copying vault binary from $ib to local"
+    log "INFO" $func "s3://${ib}/install_files/${bin}  ${TMP_DIR}/${zip}"
+    aws s3 cp "s3://${ib}/install_files/${bin}" "${TMP_DIR}/${zip}"
     ex_c=$?
-    log "INFO" $func "s3 copy exit code == $ex_c"
     if [ $ex_c -ne 0 ]
     then
-      log "ERROR" $func "The copy of the vault binary from ${loc}/${bin} failed"
+      log "ERROR" $func "The copy of the vault binary from ${ib}/${bin} failed"
       exit
     else
       log "INFO" $func "Copy of vault binary successful"
     fi
-    unzip -tqq ${tmp}/${zip}
+    unzip -tqq ${TMP_DIR}/${zip}
     if [ $? -ne 0 ]
     then
       log "ERROR" $func "Supplied Vault binary is not a zip file"
@@ -332,8 +329,8 @@ function install {
         shift
         ;;
       --version)
-        v="$2"
-        TMP_ZIP="vault_${v}_linux_386.zip"
+        version="$2"
+        TMP_ZIP="vault_${version}_linux_386.zip"
         shift
         ;;
       --key)
@@ -366,7 +363,14 @@ function install {
   log "INFO" $func "Starting Vault install"
   install_dependencies
   create_vault_user "$DEFAULT_VAULT_USER"
-  get_vault_binary "$vb"
+  # if there is no version then we are going to get binary from S3
+  # else we download from vault site
+  if [[ -z $version ]]
+  then
+    get_vault_binary "$vb" 1
+  else
+    get_vault_binary "$version" 0
+  fi
   install_vault "$DEFAULT_INSTALL_PATH" "$TMP_DIR" "$TMP_ZIP"
   create_vault_install_paths "$DEFAULT_VAULT_PATH" "$DEFAULT_VAULT_CERTS" "$DEFAULT_VAULT_USER" "$DEFAULT_VAULT_CONFIG" "$k" "$c" "$a_ad"
   install_vault_tls_keys "$ib" "$k" "$c" "$DEFAULT_VAULT_CERTS"
