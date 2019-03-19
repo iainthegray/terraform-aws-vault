@@ -32,8 +32,8 @@ module vault_cluster {
   vault_version  = "1.0.1"
   key_pem        = "key.pem"
   cert_pem       = "cert.pem"
-  # consul_version = "1.3.1"
-  consul_bin     = "consul_1.3.1_linux_386.zip"
+  consul_version = "1.3.1"
+  # consul_bin     = "consul_1.3.1_linux_386.zip"
 }
 
 /*--------------------------------------------------------------
